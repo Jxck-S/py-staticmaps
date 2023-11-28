@@ -1,4 +1,4 @@
-"""py-staticmaps - image_marker"""
+# py-staticmaps
 # Copyright (c) 2020 Florian Pigorsch; see /LICENSE for licensing information
 
 import io
@@ -14,14 +14,15 @@ from .svg_renderer import SvgRenderer
 
 
 class ImageMarker(Object):
-    """
-    ImageMarker A marker for an image object
-    """
-
-    def __init__(self, latlng: s2sphere.LatLng, png_file: str, origin_x: int, origin_y: int) -> None:
+    def __init__(self, latlng: s2sphere.LatLng, image: str | bytes, origin_x: int, origin_y: int) -> None:
         Object.__init__(self)
         self._latlng = latlng
-        self._png_file = png_file
+        if isinstance(image, str):
+            self._png_file = image
+            self._image_stream = None
+        elif isinstance(image, bytes):
+            self._image_stream = image
+            self._png_file = None
         self._origin_x = origin_x
         self._origin_y = origin_y
         self._width = 0
@@ -31,24 +32,24 @@ class ImageMarker(Object):
     def origin_x(self) -> int:
         """Return x origin of the image marker
 
-        Returns:
-            int: x origin of the image marker
+        :return: x origin of the image marker
+        :rtype: int
         """
         return self._origin_x
 
     def origin_y(self) -> int:
         """Return y origin of the image marker
 
-        Returns:
-            int: y origin of the image marker
+        :return: y origin of the image marker
+        :rtype: int
         """
         return self._origin_y
 
     def width(self) -> int:
         """Return width of the image marker
 
-        Returns:
-            int: width of the image marker
+        :return: width of the image marker
+        :rtype: int
         """
         if self._image_data is None:
             self.load_image_data()
@@ -57,8 +58,8 @@ class ImageMarker(Object):
     def height(self) -> int:
         """Return height of the image marker
 
-        Returns:
-            int: height of the image marker
+        :return: height of the image marker
+        :rtype: int
         """
         if self._image_data is None:
             self.load_image_data()
@@ -67,8 +68,8 @@ class ImageMarker(Object):
     def image_data(self) -> bytes:
         """Return image data of the image marker
 
-        Returns:
-            bytes: image data of the image marker
+        :return: image data of the image marker
+        :rtype: bytes
         """
         if self._image_data is None:
             self.load_image_data()
@@ -78,24 +79,24 @@ class ImageMarker(Object):
     def latlng(self) -> s2sphere.LatLng:
         """Return LatLng of the image marker
 
-        Returns:
-            s2sphere.LatLng: LatLng of the image marker
+        :return: LatLng of the image marker
+        :rtype: s2sphere.LatLng
         """
         return self._latlng
 
     def bounds(self) -> s2sphere.LatLngRect:
         """Return bounds of the image marker
 
-        Returns:
-            s2sphere.LatLngRect: bounds of the image marker
+        :return: bounds of the image marker
+        :rtype: s2sphere.LatLngRect
         """
         return s2sphere.LatLngRect.from_point(self._latlng)
 
     def extra_pixel_bounds(self) -> PixelBoundsT:
         """Return extra pixel bounds of the image marker
 
-        Returns:
-            PixelBoundsT: extra pixel bounds of the image marker
+        :return: extra pixel bounds of the image marker
+        :rtype: PixelBoundsT
         """
         return (
             max(0, self._origin_x),
@@ -107,8 +108,8 @@ class ImageMarker(Object):
     def render_pillow(self, renderer: PillowRenderer) -> None:
         """Render marker using PILLOW
 
-        Parameters:
-            renderer (PillowRenderer): pillow renderer
+        :param renderer: pillow renderer
+        :type renderer: PillowRenderer
         """
         x, y = renderer.transformer().ll2pixel(self.latlng())
         image = renderer.create_image(self.image_data())
@@ -126,8 +127,8 @@ class ImageMarker(Object):
     def render_svg(self, renderer: SvgRenderer) -> None:
         """Render marker using svgwrite
 
-        Parameters:
-            renderer (SvgRenderer): svg renderer
+        :param renderer: svg renderer
+        :type renderer: SvgRenderer
         """
         x, y = renderer.transformer().ll2pixel(self.latlng())
         image = renderer.create_inline_image(self.image_data())
@@ -143,8 +144,8 @@ class ImageMarker(Object):
     def render_cairo(self, renderer: CairoRenderer) -> None:
         """Render marker using cairo
 
-        Parameters:
-            renderer (CairoRenderer): cairo renderer
+        :param renderer: cairo renderer
+        :type renderer: CairoRenderer
         """
         x, y = renderer.transformer().ll2pixel(self.latlng())
         image = renderer.create_image(self.image_data())
@@ -155,7 +156,10 @@ class ImageMarker(Object):
 
     def load_image_data(self) -> None:
         """Load image data for the image marker"""
-        with open(self._png_file, "rb") as f:
-            self._image_data = f.read()
+        if self._png_file:
+            with open(self._png_file, "rb") as f:
+                self._image_data = f.read()
+        else:
+            self._image_data = self._image_stream
         image = PIL_Image.open(io.BytesIO(self._image_data))
         self._width, self._height = image.size
