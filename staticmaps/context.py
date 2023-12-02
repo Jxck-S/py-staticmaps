@@ -109,7 +109,7 @@ class Context:
         """
         self._objects.append(obj)
 
-    def render_cairo(self, width: int, height: int) -> typing.Any:
+    def render_cairo(self, width: int, height: int, attribution: bool=True) -> typing.Any:
         """Render area using cairo
 
         Parameters:
@@ -137,11 +137,12 @@ class Context:
         renderer.render_background(self._background_color)
         renderer.render_tiles(self._fetch_tile, self._objects, self._tighten_to_bounds)
         renderer.render_objects(self._objects, self._tighten_to_bounds)
-        renderer.render_attribution(self._tile_provider.attribution())
+        if attribution:
+            renderer.render_attribution(self._tile_provider.attribution())
 
         return renderer.image_surface()
 
-    def render_pillow(self, width: int, height: int) -> PIL_Image:
+    def render_pillow(self, width: int, height: int, attribution: bool=True) -> PIL_Image:
         """Render context using PILLOW
 
         Parameters:
@@ -164,7 +165,8 @@ class Context:
         renderer.render_background(self._background_color)
         renderer.render_tiles(self._fetch_tile, self._objects, self._tighten_to_bounds)
         renderer.render_objects(self._objects, self._tighten_to_bounds)
-        renderer.render_attribution(self._tile_provider.attribution())
+        if attribution:
+            renderer.render_attribution(self._tile_provider.attribution())
 
         return renderer.image()
 
