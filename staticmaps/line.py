@@ -109,33 +109,33 @@ class Line(Bounds):
             last = current
         return self._interpolation_cache
 
-        def calculate_final_bearing(self) -> float:
-            """ Calculate the final bearing of the line. Like the direction an aircraft would be pointing after it Flew from Point A to Point B
+    def calculate_final_bearing(self) -> float:
+        """ Calculate the final bearing of the line. Like the direction an aircraft would be pointing after it Flew from Point A to Point B
 
-            Returns:
-                float: The final bearing in degrees.
-            """
-            if len(self._latlngs) < 2:
-                raise ValueError("Not enough coordinates to calculate bearing.")
+        Returns:
+            float: The final bearing in degrees.
+        """
+        if len(self._latlngs) < 2:
+            raise ValueError("Not enough coordinates to calculate bearing.")
 
-            # Ensure the interpolation cache is populated
-            interpolated_points = self.interpolate()
+        # Ensure the interpolation cache is populated
+        interpolated_points = self.interpolate()
 
-            # Retrieve the last two points from the interpolation
-            end_point = self._latlngs[-1]
-            second_last_point = interpolated_points[0]
+        # Retrieve the last two points from the interpolation
+        end_point = self._latlngs[-1]
+        second_last_point = interpolated_points[0]
 
-            # Calculate the final bearing using the Geodesic library
-            geod = Geodesic.WGS84
-            g = geod.Inverse(
-                second_last_point.lat().degrees,
-                second_last_point.lng().degrees,
-                end_point.lat().degrees,
-                end_point.lng().degrees
-            )
+        # Calculate the final bearing using the Geodesic library
+        geod = Geodesic.WGS84
+        g = geod.Inverse(
+            second_last_point.lat().degrees,
+            second_last_point.lng().degrees,
+            end_point.lat().degrees,
+            end_point.lng().degrees
+        )
 
-            # Return the final bearing (azi1)
-            return (g['azi1'] + 180) % 360
+        # Return the final bearing (azi1)
+        return (g['azi1'] + 180) % 360
 
     def render_pillow(self, renderer: PillowRenderer) -> None:
         """Render line using PILLOW
