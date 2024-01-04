@@ -109,6 +109,10 @@ class Context:
         """
         self._objects.append(obj)
 
+    def remove_latest_object(self) -> None:
+        """Remove the latest object added to the static map"""
+        self._objects.pop()
+
     def render_cairo(self, width: int, height: int, attribution: bool=True) -> typing.Any:
         """Render area using cairo
 
