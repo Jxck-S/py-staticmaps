@@ -1,7 +1,10 @@
 #!/usr/bin/env python
 
 """py-staticmaps - Example Tile Providers"""
+
 # Copyright (c) 2020 Florian Pigorsch; see /LICENSE for licensing information
+
+import os
 
 import staticmaps
 
@@ -17,6 +20,17 @@ context.add_object(staticmaps.Marker(p2, color=staticmaps.GREEN))
 context.add_object(staticmaps.Marker(p3, color=staticmaps.YELLOW))
 
 for name, provider in staticmaps.default_tile_providers.items():
+    # Jawg and Stadia require access tokens
+    if "jawg" in provider.name():
+        if "API_KEY_JAWG" in os.environ:
+            provider.set_api_key(os.environ.get("API_KEY_JAWG"))  # type: ignore
+        else:
+            continue
+    if "stadia" in provider.name():
+        if "API_KEY_STADIA" in os.environ:
+            provider.set_api_key(os.environ.get("API_KEY_STADIA"))  # type: ignore
+        else:
+            continue
     context.set_tile_provider(provider)
 
     # render png via pillow
@@ -25,8 +39,8 @@ for name, provider in staticmaps.default_tile_providers.items():
 
     # render png via cairo
     if staticmaps.cairo_is_supported():
-        image = context.render_cairo(800, 500)
-        image.write_to_png(f"provider_{name}.cairo.png")
+        cairo_image = context.render_cairo(800, 500)
+        cairo_image.write_to_png(f"provider_{name}.cairo.png")
 
     # render svg
     context.set_tighten_to_bounds()

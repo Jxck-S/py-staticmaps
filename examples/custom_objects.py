@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 """py-staticmaps - Example Custom Objects"""
+
 # Copyright (c) 2021 Florian Pigorsch; see /LICENSE for licensing information
 
 try:
@@ -63,7 +64,7 @@ class TextLabel(staticmaps.Object):
         x, y = renderer.transformer().ll2pixel(self.latlng())
         x += renderer.offset_x()
 
-        textbox = renderer.draw().textbbox((0, 0, 0, 0), self._text)
+        textbox = renderer.draw().textbbox((0.0, 0.0), self._text)
         tw, th = (textbox[2] - textbox[0], textbox[3] - textbox[1])
         w = max(self._arrow, tw + 2 * self._margin)
         h = th + 2 * self._margin
@@ -192,8 +193,8 @@ image.save("custom_objects.pillow.png")
 
 # render png via cairo
 if staticmaps.cairo_is_supported():
-    image = context.render_cairo(800, 500)
-    image.write_to_png("custom_objects.cairo.png")
+    cairo_image = context.render_cairo(800, 500)
+    cairo_image.write_to_png("custom_objects.cairo.png")
 
 # render svg
 svg_image = context.render_svg(800, 500)

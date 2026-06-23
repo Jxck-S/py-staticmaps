@@ -59,4 +59,7 @@ data
 *.mpeg
 *.mp4
 *.mkv
-*.wmv'
+*.wmv
+examples/build
+build
+site

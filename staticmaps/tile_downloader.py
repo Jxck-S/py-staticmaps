@@ -1,4 +1,5 @@
 """py-staticmaps - tile_downloader"""
+
 # Copyright (c) 2020 Florian Pigorsch; see /LICENSE for licensing information
 
 import os
@@ -11,7 +12,7 @@ import slugify  # type: ignore
 from .meta import GITHUB_URL, LIB_NAME, VERSION
 from .tile_provider import TileProvider
 
-REQUEST_TIMEOUT = 600
+REQUEST_TIMEOUT = 10
 
 
 class TileDownloader:

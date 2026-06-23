@@ -146,7 +146,7 @@ class Context:
 
         return renderer.image_surface()
 
-    def render_pillow(self, width: int, height: int, attribution: bool=True) -> PIL_Image:
+    def render_pillow(self, width: int, height: int, attribution: bool=True) -> PIL_Image.Image:
         """Render context using PILLOW
 
         Parameters:
@@ -226,7 +226,7 @@ class Context:
         if (attribution is None) or (attribution == ""):
             max_b = max(max_b, 12)
         for obj in self._objects:
-            (l, t, r, b) = obj.extra_pixel_bounds()
+            l, t, r, b = obj.extra_pixel_bounds()
             max_l = max(max_l, l)
             max_t = max(max_t, t)
             max_r = max(max_r, r)
@@ -324,10 +324,10 @@ class Context:
                 min_y = t
                 max_y = b
             else:
-                min_x = min(min_x, l)
-                max_x = max(max_x, r)
-                min_y = min(min_y, t)
-                max_y = max(max_y, b)
+                min_x = min(min_x, l)  # type: ignore
+                max_x = max(max_x, r)  # type: ignore
+                min_y = min(min_y, t)  # type: ignore
+                max_y = max(max_y, b)  # type: ignore
         assert min_x is not None
         assert max_x is not None
         assert min_y is not None

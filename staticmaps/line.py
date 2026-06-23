@@ -1,4 +1,5 @@
 """py-staticmaps - line"""
+
 # Copyright (c) 2020 Florian Pigorsch; see /LICENSE for licensing information
 
 import math
@@ -21,8 +22,9 @@ class Line(Bounds):
     Line A line object
     """
 
+    # pylint: disable=super-init-not-called
     def __init__(self, latlngs: typing.List[s2sphere.LatLng], color: Color = RED, width: int = 2) -> None:
-        Object.__init__(self)
+        Object.__init__(self)  # pylint: disable=non-parent-init-called
         if latlngs is None or len(latlngs) < 2:
             raise ValueError("Trying to create line with less than 2 coordinates")
         if width < 0:
@@ -101,7 +103,7 @@ class Line(Bounds):
                 current.lng().degrees,
             )
             n = 2 + math.ceil(line.a13)
-            for i in range(1, n+1):
+            for i in range(1, n + 1):
                 a = (i * line.a13) / n
                 g = line.ArcPosition(a, Geodesic.LATITUDE | Geodesic.LONGITUDE | Geodesic.LONG_UNROLL)
                 self._interpolation_cache.append(create_latlng(g["lat2"], g["lon2"]))
