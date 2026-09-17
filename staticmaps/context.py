@@ -30,6 +30,8 @@ class Context:
     def __init__(self) -> None:
         self._background_color: typing.Optional[Color] = None
         self._objects: typing.List[Object] = []
+        self._focused_objects: typing.List[Object] = []
+        self._focused_only: bool = False
         self._center: typing.Optional[s2sphere.LatLng] = None
         self._zoom: typing.Optional[int] = None
         self._tile_provider = tile_provider_OSM
@@ -101,17 +103,59 @@ class Context:
         """
         self._tighten_to_bounds = tighten
 
-    def add_object(self, obj: Object) -> None:
+    def add_object(self, obj: Object, focused: bool = False) -> None:
         """Add object for the static map (e.g. line, area, marker)
 
         Parameters:
             obj (Object): map object
+            focused (bool): also mark the object as focused. When focused-only
+                mode is enabled with set_focused_only, center and zoom are
+                determined from the focused objects alone, while every object
+                is still rendered.
         """
         self._objects.append(obj)
+        if focused:
+            self._focused_objects.append(obj)
 
-    def remove_latest_object(self) -> None:
-        """Remove the latest object added to the static map"""
-        self._objects.pop()
+    def set_focused_only(self, focused_only: bool) -> None:
+        """Determine center and zoom from the focused objects only
+
+        Parameters:
+            focused_only (bool): use only focused objects to fit the map
+        """
+        self._focused_only = focused_only
+
+    def focused_only(self) -> bool:
+        """Return whether center and zoom are determined from focused objects only
+
+        Returns:
+            bool: focused-only mode
+        """
+        return self._focused_only
+
+    def reset_focused_objects(self) -> None:
+        """Forget every object previously marked as focused
+
+        The objects themselves remain on the map; only their focused status
+        is cleared.
+        """
+        self._focused_objects = []
+
+    def remove_latest_object(self, count: int = 1) -> None:
+        """Remove the most recently added objects from the static map
+
+        Parameters:
+            count (int): how many objects to remove, defaults to 1
+
+        Raises:
+            IndexError: if there are fewer than count objects on the map
+        """
+        if count > len(self._objects):
+            raise IndexError(f"cannot remove {count} objects, the map has {len(self._objects)}")
+        for _ in range(count):
+            obj = self._objects.pop()
+            if obj in self._focused_objects:
+                self._focused_objects.remove(obj)
 
     def render_cairo(self, width: int, height: int, attribution: bool = True) -> typing.Any:
         """Render area using cairo
@@ -131,7 +175,7 @@ class Context:
         if not cairo_is_supported():
             raise RuntimeError('You need to install the "cairo" module to enable "render_cairo".')
 
-        center, zoom = self.determine_center_zoom(width, height)
+        center, zoom = self.determine_center_zoom(width, height, self._focused_only)
         if center is None or zoom is None:
             raise RuntimeError("Cannot render map without center/zoom.")
 
@@ -159,7 +203,7 @@ class Context:
         Raises:
             RuntimeError: raises runtime error if map has no center and zoom
         """
-        center, zoom = self.determine_center_zoom(width, height)
+        center, zoom = self.determine_center_zoom(width, height, self._focused_only)
         if center is None or zoom is None:
             raise RuntimeError("Cannot render map without center/zoom.")
 
@@ -187,7 +231,7 @@ class Context:
         Raises:
             RuntimeError: raises runtime error if map has no center and zoom
         """
-        center, zoom = self.determine_center_zoom(width, height)
+        center, zoom = self.determine_center_zoom(width, height, self._focused_only)
         if center is None or zoom is None:
             raise RuntimeError("Cannot render map without center/zoom.")
 
@@ -201,16 +245,20 @@ class Context:
 
         return renderer.drawing()
 
-    def object_bounds(self) -> typing.Optional[s2sphere.LatLngRect]:
+    def object_bounds(self, focused_only: bool = False) -> typing.Optional[s2sphere.LatLngRect]:
         """return maximum bounds of all objects
+
+        Parameters:
+            focused_only (bool): consider only objects added with focused=True
 
         Returns:
             s2sphere.LatLngRect: maximum of all object bounds
         """
+        objects = self._focused_objects if focused_only else self._objects
         bounds = None
-        if len(self._objects) != 0:
+        if len(objects) != 0:
             bounds = s2sphere.LatLngRect()
-            for obj in self._objects:
+            for obj in objects:
                 assert bounds
                 bounds = bounds.union(obj.bounds())
         return bounds
@@ -234,13 +282,14 @@ class Context:
         return max_l, max_t, max_r, max_b
 
     def determine_center_zoom(
-        self, width: int, height: int
+        self, width: int, height: int, focused_only: bool = False
     ) -> typing.Tuple[typing.Optional[s2sphere.LatLng], typing.Optional[int]]:
         """return center and zoom of static map
 
         Parameters:
             width (int): width of static map
             height (int): height of static map
+            focused_only (bool): fit to the focused objects only
 
         Returns:
             tuple: center, zoom
@@ -248,10 +297,10 @@ class Context:
         if self._center is not None:
             if self._zoom is not None:
                 return self._center, self._clamp_zoom(self._zoom)
-            b = self.object_bounds()
+            b = self.object_bounds(focused_only)
             return self._center, self._determine_zoom(width, height, b, self._center)
 
-        b = self.object_bounds()
+        b = self.object_bounds(focused_only)
         if b is None:
             return None, None
 
