@@ -111,7 +111,9 @@ class Line(Bounds):
         return self._interpolation_cache
 
     def calculate_final_bearing(self) -> float:
-        """ Calculate the final bearing of the line. Like the direction an aircraft would be pointing after it Flew from Point A to Point B
+        """Calculate the final bearing of the line.
+
+        Like the direction an aircraft would be pointing after it flew from Point A to Point B.
 
         Returns:
             float: The final bearing in degrees.
@@ -132,11 +134,11 @@ class Line(Bounds):
             second_last_point.lat().degrees,
             second_last_point.lng().degrees,
             end_point.lat().degrees,
-            end_point.lng().degrees
+            end_point.lng().degrees,
         )
 
         # Return the final bearing (azi1)
-        return (g['azi1'] + 180) % 360
+        return (g["azi1"] + 180) % 360
 
     def render_pillow(self, renderer: PillowRenderer) -> None:
         """Render line using PILLOW
