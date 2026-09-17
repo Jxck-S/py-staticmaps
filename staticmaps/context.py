@@ -38,6 +38,72 @@ class Context:
         self._tile_downloader = TileDownloader()
         self._cache_dir = os.path.join(appdirs.user_cache_dir(LIB_NAME), "tiles")
         self._tighten_to_bounds: bool = False
+        self.max_zoom: typing.Optional[int] = None
+        self.min_zoom: typing.Optional[int] = None
+
+    def set_max_min_zoom(self, max_zoom: int, min_zoom: int) -> None:
+        """Bound the automatically determined zoom for static map
+
+        This only constrains the zoom computed from the object bounds; a zoom
+        set explicitly with set_zoom is used as given. It is separate from the
+        tile provider's own limits, which are always applied as well.
+
+        It matters when the zoom is dynamic, such as rendering a sequence of
+        images with focused-only fitting, where an unconstrained zoom changes
+        from image to image as the focused bounds move. Note that when a bound
+        binds, the objects are no longer guaranteed to fit the image.
+
+        Parameters:
+            max_zoom (int): highest zoom the map may be fitted to
+            min_zoom (int): lowest zoom the map may be fitted to
+
+        Raises:
+            ValueError: raises value error for invalid zoom factors
+        """
+        if max_zoom < 0 or max_zoom > 30:
+            raise ValueError(f"Bad max zoom value: {max_zoom}")
+        if min_zoom < 0 or min_zoom > 30:
+            raise ValueError(f"Bad min zoom value: {min_zoom}")
+        self.max_zoom = max_zoom
+        self.min_zoom = min_zoom
+
+    def zoom_in_range(self, zoom: int) -> int:
+        """Clamp a zoom level to the user defined range, not the tile provider's
+
+        Parameters:
+            zoom (int): zoom level
+
+        Returns:
+            int: zoom level in bounds
+        """
+        if self.max_zoom and zoom > self.max_zoom:
+            return self.max_zoom
+        if self.min_zoom and zoom < self.min_zoom:
+            return self.min_zoom
+        return zoom
+
+    def load_tiles_to_mem(self) -> None:
+        """Load cached tiles into memory for the zoom levels this map may use
+
+        With set_max_min_zoom set, every level in that range is loaded;
+        otherwise the single level set with set_zoom is loaded.
+
+        Raises:
+            ValueError: if neither set_zoom nor set_max_min_zoom has been called,
+                so there is no zoom level to load
+        """
+        if self.max_zoom is None and self.min_zoom is None:
+            if self._zoom is None:
+                raise ValueError("no zoom to load: call set_zoom or set_max_min_zoom first")
+            self._tile_downloader.load_tiles_to_mem(self._tile_provider, self._zoom, self._cache_dir)
+        elif self.max_zoom and self.min_zoom:
+            for zoom in range(self.min_zoom, self.max_zoom + 1):
+                self._tile_downloader.load_tiles_to_mem(self._tile_provider, zoom, self._cache_dir)
+
+    def reset_center_zoom(self) -> None:
+        """Forget the center and zoom so the next render re-fits to the objects"""
+        self._center = None
+        self._zoom = None
 
     def set_zoom(self, zoom: int) -> None:
         """Set zoom for static map
@@ -321,7 +387,7 @@ class Context:
             b = b.union(s2sphere.LatLngRect(c, c))
         assert b
         if b.is_point():
-            return self._clamp_zoom(15)
+            return self._clamp_zoom(self.zoom_in_range(15))
 
         pixel_margin = self.extra_pixel_bounds()
 
@@ -344,8 +410,8 @@ class Context:
         for zoom in range(1, self._tile_provider.max_zoom()):
             tiles = 2**zoom
             if (dx * tiles > w) or (dy * tiles > h):
-                return self._clamp_zoom(zoom - 1)
-        return self._clamp_zoom(15)
+                return self._clamp_zoom(self.zoom_in_range(zoom - 1))
+        return self._clamp_zoom(self.zoom_in_range(15))
 
     @staticmethod
     def _determine_center(b: s2sphere.LatLngRect) -> s2sphere.LatLng:
