@@ -67,6 +67,15 @@ class PillowRenderer(Renderer):
         self._image = PIL_Image.alpha_composite(self._image, image)
         self._draw = PIL_ImageDraw.Draw(self._image)
 
+    def paste(self, image: PIL_Image.Image, xy: typing.Tuple[int, int]) -> None:
+        """Paste an image onto the rendered image
+
+        Parameters:
+            image (PIL_Image.Image): image to paste
+            xy (typing.Tuple[int, int]): upper-left corner to paste at
+        """
+        self._image.paste(image, xy)
+
     def render_objects(
         self,
         objects: typing.List["Object"],
