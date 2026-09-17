@@ -15,15 +15,19 @@ from .svg_renderer import SvgRenderer
 
 
 class ImageMarker(Object):
+    # Eight attributes: this fork's bytes-stream support adds _image_stream alongside _png_file.
+    # pylint: disable=too-many-instance-attributes
     def __init__(self, latlng: s2sphere.LatLng, image: str | bytes, origin_x: int, origin_y: int) -> None:
         Object.__init__(self)
         self._latlng = latlng.normalized()
+        self._png_file: typing.Optional[str] = None
+        self._image_stream: typing.Optional[bytes] = None
         if isinstance(image, str):
             self._png_file = image
-            self._image_stream = None
         elif isinstance(image, bytes):
             self._image_stream = image
-            self._png_file = None
+        else:
+            raise ValueError("image must be a path (str) or a PNG byte stream (bytes)")
         self._origin_x = origin_x
         self._origin_y = origin_y
         self._width = 0
@@ -162,5 +166,7 @@ class ImageMarker(Object):
                 self._image_data = f.read()
         else:
             self._image_data = self._image_stream
+        if self._image_data is None:
+            raise ValueError("ImageMarker has neither a PNG file nor an image stream")
         image = PIL_Image.open(io.BytesIO(self._image_data))
         self._width, self._height = image.size

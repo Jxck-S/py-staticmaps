@@ -113,7 +113,7 @@ class Context:
         """Remove the latest object added to the static map"""
         self._objects.pop()
 
-    def render_cairo(self, width: int, height: int, attribution: bool=True) -> typing.Any:
+    def render_cairo(self, width: int, height: int, attribution: bool = True) -> typing.Any:
         """Render area using cairo
 
         Parameters:
@@ -146,7 +146,7 @@ class Context:
 
         return renderer.image_surface()
 
-    def render_pillow(self, width: int, height: int, attribution: bool=True) -> PIL_Image.Image:
+    def render_pillow(self, width: int, height: int, attribution: bool = True) -> PIL_Image.Image:
         """Render context using PILLOW
 
         Parameters:
