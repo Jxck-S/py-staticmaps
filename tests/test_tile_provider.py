@@ -37,3 +37,21 @@ def test_tile_provider_init() -> None:
     assert t1.attribution() == t2.attribution() == "Maps (C) Jawg Maps (C) OpenStreetMap.org contributors"
     assert t1.tile_size() == t2.tile_size() == 256
     assert t1.max_zoom() == t2.max_zoom() == 20
+
+
+def test_carto_providers_are_exported() -> None:
+    """All four Carto providers are in default_tile_providers and must be exported.
+
+    tile_provider_Carto and tile_provider_CartoDark were reachable through the
+    default_tile_providers dict but missing from the top-level exports, while
+    their NoLabels siblings were present.
+    """
+    for name in (
+        "tile_provider_Carto",
+        "tile_provider_CartoDark",
+        "tile_provider_CartoNoLabels",
+        "tile_provider_CartoDarkNoLabels",
+    ):
+        assert name in staticmaps.__all__
+        provider = getattr(staticmaps, name)
+        assert staticmaps.default_tile_providers[provider.name()] is provider

@@ -17,7 +17,7 @@ from .svg_renderer import SvgRenderer
 class ImageMarker(Object):
     def __init__(self, latlng: s2sphere.LatLng, image: str | bytes, origin_x: int, origin_y: int) -> None:
         Object.__init__(self)
-        self._latlng = latlng
+        self._latlng = latlng.normalized()
         if isinstance(image, str):
             self._png_file = image
             self._image_stream = None
