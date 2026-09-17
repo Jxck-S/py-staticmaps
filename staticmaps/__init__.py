@@ -29,6 +29,7 @@ from .line import Line
 from .marker import Marker
 from .meta import GITHUB_URL, LIB_NAME, VERSION
 from .object import Object, PixelBoundsT
+from .point import Point
 from .pillow_renderer import PillowRenderer
 from .svg_renderer import SvgRenderer
 from .tile_downloader import TileDownloader
@@ -46,6 +47,7 @@ from .tile_provider import (
     tile_provider_StamenToner,
     tile_provider_StamenTonerLite,
 )
+from .square import Square
 from .transformer import Transformer
 
 __all__ = [
@@ -79,6 +81,7 @@ __all__ = [
     "LIB_NAME",
     "VERSION",
     "Object",
+    "Point",
     "PixelBoundsT",
     "PillowRenderer",
     "SvgRenderer",
@@ -95,5 +98,6 @@ __all__ = [
     "tile_provider_StamenTerrain",
     "tile_provider_StamenToner",
     "tile_provider_StamenTonerLite",
+    "Square",
     "Transformer",
 ]
