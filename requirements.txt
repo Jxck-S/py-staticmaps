@@ -4,6 +4,5 @@ PILLOW>=12.2.0
 python-slugify
 requests
 s2sphere
-slugify
 svgwrite
 types-requests
