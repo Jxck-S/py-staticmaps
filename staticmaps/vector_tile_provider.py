@@ -88,17 +88,23 @@ class VectorTileProvider(TileProvider):
             raise RuntimeError(f"fetch {url} yields {res.status_code}")
         return res.json()
 
-    def _source_tilejson(self, parsed: dict) -> typing.List[dict]:
-        """Fetch the TileJSON of every source that references one
+    def _source_documents(self, parsed: dict) -> typing.List[dict]:
+        """Collect every document describing a source of this style
+
+        A source either carries its tiles and attribution inline, or points at
+        a TileJSON that does. Both forms are used in the wild, so both are
+        collected here.
 
         Parameters:
             parsed (dict): decoded style
 
         Returns:
-            typing.List[dict]: decoded TileJSON documents
+            typing.List[dict]: source dicts and decoded TileJSON documents
         """
         documents = []
         for source in (parsed.get("sources") or {}).values():
+            if source.get("tiles") or source.get("attribution"):
+                documents.append(source)
             url = source.get("url")
             if not url or not url.startswith("http"):
                 continue
@@ -122,7 +128,7 @@ class VectorTileProvider(TileProvider):
             str: short hex digest
         """
         seeds: typing.List[str] = []
-        for document in self._source_tilejson(parsed):
+        for document in self._source_documents(parsed):
             seeds.extend(document.get("tiles") or [])
         if not seeds:
             seeds = [self._style_url or ""]
@@ -138,7 +144,7 @@ class VectorTileProvider(TileProvider):
             typing.Optional[str]: attribution if one is advertised
         """
         parts: typing.List[str] = []
-        for document in self._source_tilejson(parsed):
+        for document in self._source_documents(parsed):
             text = _strip_html(document.get("attribution") or "")
             if text and text not in parts:
                 parts.append(text)
@@ -230,6 +236,47 @@ def openfreemap(style: str = "liberty", max_zoom: int = 20) -> VectorTileProvide
     )
 
 
+def maptoolkit(style: str = "street", max_zoom: int = 20) -> VectorTileProvider:
+    """Return a Maptoolkit vector tile provider
+
+    Maptoolkit needs no api key and imposes no request limits, but its terms
+    require a visible logo alongside the copyright line, which this library
+    does not render; only the text attribution is drawn.
+
+    Parameters:
+        style (str): one of dark, light, street (also summer, winter, hiking, cycling)
+        max_zoom (int): maximum zoom
+
+    Returns:
+        VectorTileProvider: provider for the given style
+    """
+    return VectorTileProvider(
+        f"maptoolkit-{style}",
+        style_url=f"https://styles.maptoolkit.org/{style}.json",
+        max_zoom=max_zoom,
+    )
+
+
+def versatiles(style: str = "colorful", max_zoom: int = 20) -> VectorTileProvider:
+    """Return a VersaTiles vector tile provider
+
+    VersaTiles needs no api key. Its sources carry attribution inline rather
+    than in a TileJSON, which is resolved automatically.
+
+    Parameters:
+        style (str): one of colorful, graybeard, neutrino, eclipse, shadow
+        max_zoom (int): maximum zoom
+
+    Returns:
+        VectorTileProvider: provider for the given style
+    """
+    return VectorTileProvider(
+        f"versatiles-{style}",
+        style_url=f"https://tiles.versatiles.org/assets/styles/{style}/style.json",
+        max_zoom=max_zoom,
+    )
+
+
 # pylint: disable=invalid-name
 tile_provider_OpenFreeMapLiberty = openfreemap("liberty")
 tile_provider_OpenFreeMapBright = openfreemap("bright")
@@ -237,10 +284,31 @@ tile_provider_OpenFreeMapPositron = openfreemap("positron")
 tile_provider_OpenFreeMapDark = openfreemap("dark")
 tile_provider_OpenFreeMapFiord = openfreemap("fiord")
 
+tile_provider_MaptoolkitDark = maptoolkit("dark")
+tile_provider_MaptoolkitLight = maptoolkit("light")
+tile_provider_MaptoolkitStreet = maptoolkit("street")
+
+tile_provider_VersaTilesColorful = versatiles("colorful")
+tile_provider_VersaTilesGraybeard = versatiles("graybeard")
+tile_provider_VersaTilesNeutrino = versatiles("neutrino")
+tile_provider_VersaTilesEclipse = versatiles("eclipse")
+tile_provider_VersaTilesShadow = versatiles("shadow")
+
 default_vector_tile_providers = {
-    "openfreemap-liberty": tile_provider_OpenFreeMapLiberty,
-    "openfreemap-bright": tile_provider_OpenFreeMapBright,
-    "openfreemap-positron": tile_provider_OpenFreeMapPositron,
-    "openfreemap-dark": tile_provider_OpenFreeMapDark,
-    "openfreemap-fiord": tile_provider_OpenFreeMapFiord,
+    p.name(): p
+    for p in (
+        tile_provider_OpenFreeMapLiberty,
+        tile_provider_OpenFreeMapBright,
+        tile_provider_OpenFreeMapPositron,
+        tile_provider_OpenFreeMapDark,
+        tile_provider_OpenFreeMapFiord,
+        tile_provider_MaptoolkitDark,
+        tile_provider_MaptoolkitLight,
+        tile_provider_MaptoolkitStreet,
+        tile_provider_VersaTilesColorful,
+        tile_provider_VersaTilesGraybeard,
+        tile_provider_VersaTilesNeutrino,
+        tile_provider_VersaTilesEclipse,
+        tile_provider_VersaTilesShadow,
+    )
 }

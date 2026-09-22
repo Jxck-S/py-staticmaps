@@ -55,13 +55,32 @@ context.add_object(staticmaps.Marker(staticmaps.create_latlng(37.7955, -122.3937
 context.render_pillow(800, 600).save("map.png")
 ```
 
-Available styles: `liberty`, `bright`, `positron`, `dark`, `fiord` — either as
-`tile_provider_OpenFreeMap*` or via `staticmaps.openfreemap("liberty")`. Any other
-MapLibre style works too:
+Three key-free providers are pre-configured, 13 styles in total. All of them were
+verified to render, not merely to resolve:
+
+| Provider | Styles | Factory |
+|---|---|---|
+| [OpenFreeMap](https://openfreemap.org) | `liberty`, `bright`, `positron`, `dark`, `fiord` | `staticmaps.openfreemap(...)` |
+| [Maptoolkit](https://www.maptoolkit.org) | `dark`, `light`, `street` (also `summer`, `winter`, `hiking`, `cycling`) | `staticmaps.maptoolkit(...)` |
+| [VersaTiles](https://versatiles.org) | `colorful`, `graybeard`, `neutrino`, `eclipse`, `shadow` | `staticmaps.versatiles(...)` |
+
+Each is also exported as a constant, e.g. `tile_provider_OpenFreeMapLiberty`,
+`tile_provider_MaptoolkitDark`, `tile_provider_VersaTilesColorful`, and they are
+collected in `staticmaps.default_vector_tile_providers`.
+
+Note that Maptoolkit's terms require a visible logo next to the copyright line.
+This library renders the text attribution only, so satisfying that is up to you.
+
+Any other MapLibre style works too:
 
 ```python
 provider = staticmaps.VectorTileProvider("custom", style_url="https://example.com/style.json")
 ```
+
+Be aware that MapLibre Native trails MapLibre GL JS on the newest style-spec
+expressions. A style using, say, `split` or `global-state` still loads, but the
+layers relying on them are skipped silently — which can mean a map with no labels.
+Render a style once before relying on it.
 
 ### Fractional zoom
 

@@ -61,11 +61,14 @@ def test_tile_size_is_per_provider() -> None:
     assert staticmaps.VectorTileProvider("b", style=STYLE, tile_size=512).tile_size() == 512
 
 
-def test_openfreemap_presets() -> None:
-    p = staticmaps.openfreemap("liberty")
-    assert p.is_vector()
-    assert "openfreemap" in p.name()
-    assert len(staticmaps.default_vector_tile_providers) == 5
+def test_presets() -> None:
+    assert staticmaps.openfreemap("liberty").is_vector()
+    assert "openfreemap" in staticmaps.openfreemap("liberty").name()
+    assert "maptoolkit" in staticmaps.maptoolkit("dark").name()
+    assert "versatiles" in staticmaps.versatiles("colorful").name()
+    # 5 OpenFreeMap + 3 Maptoolkit + 5 VersaTiles
+    assert len(staticmaps.default_vector_tile_providers) == 13
+    assert all(p.is_vector() for p in staticmaps.default_vector_tile_providers.values())
 
 
 def test_explicit_attribution_wins() -> None:
