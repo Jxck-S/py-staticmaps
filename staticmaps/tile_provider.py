@@ -64,14 +64,22 @@ class TileProvider:
         """
         return self._attribution
 
-    @staticmethod
-    def tile_size() -> int:
+    def tile_size(self) -> int:
         """Return the tile size
 
         Returns:
             int: tile size
         """
         return 256
+
+    @staticmethod
+    def is_vector() -> bool:
+        """Return whether this provider needs a basemap backend
+
+        Returns:
+            bool: False for raster tile providers
+        """
+        return False
 
     def max_zoom(self) -> int:
         """Return the maximum zoom of the tile provider

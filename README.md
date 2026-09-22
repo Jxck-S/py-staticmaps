@@ -10,6 +10,7 @@ A python module to create static map images (PNG, SVG) with markers, geodesic li
 - Map objects: pin-style markers, image (PNG) markers, polylines, polygons, (geodesic) circles
 - Automatic computation of best center + zoom from the added map objects
 - Several pre-configured map tile providers
+- Vector tile support (OpenFreeMap) rendered via MapLibre Native, with fractional zoom
 - Proper tile provider attributions display
 - On-disc caching of map tile images for faster drawing and reduced load on the tile servers
 - Non-anti-aliased drawing via `PILLOW`
@@ -31,6 +32,72 @@ pip install py-staticmaps
 pip install py-staticmaps[cairo]
 ```
 `py-staticmaps` uses `pycairo` for creating anti-aliased raster-graphics, so make sure `libcairo2` is installed on your system (on Ubuntu just install the `libcairo2-dev` package, i.e. `sudo apt install libcairo2-dev`).
+
+### Vector tiles (OpenFreeMap)
+```shell
+pip install py-staticmaps[pymgl]
+```
+
+## Vector tiles
+
+Raster providers serve pre-rendered image tiles. A vector provider instead downloads
+geometry and renders it locally from a MapLibre GL style, which is what
+[OpenFreeMap](https://openfreemap.org) publishes. OpenFreeMap needs no API key and
+sets no request limits, but attribution is mandatory and is rendered automatically.
+
+```python
+import staticmaps
+
+context = staticmaps.Context()
+context.set_tile_provider(staticmaps.tile_provider_OpenFreeMapLiberty)
+context.add_object(staticmaps.Marker(staticmaps.create_latlng(37.7955, -122.3937)))
+
+context.render_pillow(800, 600).save("map.png")
+```
+
+Available styles: `liberty`, `bright`, `positron`, `dark`, `fiord` — either as
+`tile_provider_OpenFreeMap*` or via `staticmaps.openfreemap("liberty")`. Any other
+MapLibre style works too:
+
+```python
+provider = staticmaps.VectorTileProvider("custom", style_url="https://example.com/style.json")
+```
+
+### Fractional zoom
+
+Raster tiles exist only at whole zoom levels, so fitting objects to the map has to step
+down to the next whole level. A vector style is rendered at an arbitrary scale, so it
+fits the bounds exactly:
+
+```python
+context.set_zoom(16.47)  # accepted for vector providers
+```
+
+Vector tiles also stay sharp well beyond the zoom their data is published at, because
+geometry is scaled rather than pixels. OpenFreeMap's data stops at zoom 14 but renders
+crisply at zoom 18 and beyond.
+
+### Rendering backend
+
+Vector styles are rendered by [pymgl](https://github.com/brendan-ward/pymgl), which
+bundles the MapLibre Native C++ engine, so output matches the reference renderer
+including labels, sprites and fill patterns. Wheels are published for macOS (arm64) and
+Linux (x86_64, aarch64); **Windows is not supported** — use WSL2 or Docker.
+
+pymgl renders through OpenGL but does **not** require GPU hardware. On a headless or
+GPU-less Linux host it works through Mesa's software rasterizer:
+
+```shell
+apt-get install -y libegl1 libgl1-mesa-dri xvfb
+export LIBGL_ALWAYS_SOFTWARE=1
+xvfb-run -a --server-args="-screen 0 1024x768x24 -ac +render -noreset" python your_script.py
+```
+
+macOS renders through Metal and needs no xvfb. Without a usable GL stack the process
+*segfaults* rather than raising, so availability is probed in a subprocess.
+
+Note that `tighten_to_bounds` and the on-disc tile cache do not apply to vector
+providers: the style is rendered as one image, and pymgl fetches its own tiles.
 
 ## Examples
 Note: PNG support (e.g. `context.render_cairo(...)`) is only available if the `pycairo` module is installed.

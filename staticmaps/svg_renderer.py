@@ -164,6 +164,20 @@ class SvgRenderer(Renderer):
         group.scale(scale)
         return group
 
+    def render_basemap(self, image_data: bytes) -> None:
+        """Render a pre-rendered basemap image covering the whole map
+
+        Parameters:
+            image_data (bytes): PNG image data, sized to the full map
+        """
+        self._draw.add(
+            self._draw.image(
+                self.create_inline_image(image_data),
+                insert=(0, 0),
+                size=self._trans.image_size(),
+            )
+        )
+
     def render_attribution(self, attribution: typing.Optional[str]) -> None:
         """Render attribution from given tiles provider
 
@@ -208,7 +222,7 @@ class SvgRenderer(Renderer):
         Returns:
             typing.Optional[str]: svg drawing
         """
-        image_data = download(self._trans.zoom(), x, y)
+        image_data = download(int(self._trans.zoom()), x, y)
         if image_data is None:
             return None
         return SvgRenderer.create_inline_image(image_data)

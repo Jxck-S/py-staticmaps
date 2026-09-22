@@ -1,5 +1,7 @@
 """py-staticmaps - Context"""
 
+# pylint: disable=too-many-lines
+
 # py-staticmaps
 # Copyright (c) 2022 Florian Pigorsch; see /LICENSE for licensing information
 
@@ -12,6 +14,7 @@ import s2sphere  # type: ignore
 import svgwrite  # type: ignore
 from PIL import Image as PIL_Image  # type: ignore
 
+from .basemap import select_backend
 from .cairo_renderer import CairoRenderer, cairo_is_supported
 from .color import Color
 from .meta import LIB_NAME
@@ -21,6 +24,7 @@ from .svg_renderer import SvgRenderer
 from .tile_downloader import TileDownloader
 from .tile_provider import TileProvider, tile_provider_OSM
 from .transformer import Transformer
+from .vector_tile_provider import VectorTileProvider
 
 
 class Context:
@@ -33,11 +37,12 @@ class Context:
         self._focused_objects: typing.List[Object] = []
         self._focused_only: bool = False
         self._center: typing.Optional[s2sphere.LatLng] = None
-        self._zoom: typing.Optional[int] = None
+        self._zoom: typing.Optional[float] = None
         self._tile_provider = tile_provider_OSM
         self._tile_downloader = TileDownloader()
         self._cache_dir = os.path.join(appdirs.user_cache_dir(LIB_NAME), "tiles")
         self._tighten_to_bounds: bool = False
+        self._basemap_backend: str = "auto"
         self.max_zoom: typing.Optional[int] = None
         self.min_zoom: typing.Optional[int] = None
 
@@ -67,14 +72,14 @@ class Context:
         self.max_zoom = max_zoom
         self.min_zoom = min_zoom
 
-    def zoom_in_range(self, zoom: int) -> int:
+    def zoom_in_range(self, zoom: float) -> float:
         """Clamp a zoom level to the user defined range, not the tile provider's
 
         Parameters:
-            zoom (int): zoom level
+            zoom (float): zoom level
 
         Returns:
-            int: zoom level in bounds
+            float: zoom level in bounds
         """
         if self.max_zoom and zoom > self.max_zoom:
             return self.max_zoom
@@ -95,7 +100,7 @@ class Context:
         if self.max_zoom is None and self.min_zoom is None:
             if self._zoom is None:
                 raise ValueError("no zoom to load: call set_zoom or set_max_min_zoom first")
-            self._tile_downloader.load_tiles_to_mem(self._tile_provider, self._zoom, self._cache_dir)
+            self._tile_downloader.load_tiles_to_mem(self._tile_provider, int(self._zoom), self._cache_dir)
         elif self.max_zoom and self.min_zoom:
             for zoom in range(self.min_zoom, self.max_zoom + 1):
                 self._tile_downloader.load_tiles_to_mem(self._tile_provider, zoom, self._cache_dir)
@@ -105,11 +110,15 @@ class Context:
         self._center = None
         self._zoom = None
 
-    def set_zoom(self, zoom: int) -> None:
+    def set_zoom(self, zoom: float) -> None:
         """Set zoom for static map
 
+        Vector tile providers accept a fractional zoom; raster providers are
+        served from discrete tile levels, so a fractional value there only
+        rescales the same tiles.
+
         Parameters:
-            zoom (int): zoom for static map
+            zoom (float): zoom for static map
 
         Raises:
             ValueError: raises value error for invalid zoom factors
@@ -223,6 +232,51 @@ class Context:
             if obj in self._focused_objects:
                 self._focused_objects.remove(obj)
 
+    def set_basemap_backend(self, name: str) -> None:
+        """Set the backend used to render vector tile providers
+
+        Parameters:
+            name (str): "auto" or "pymgl"
+        """
+        self._basemap_backend = name
+
+    def _render_base(
+        self,
+        renderer: typing.Any,
+        width: int,
+        height: int,
+        zoom: float,
+        center: s2sphere.LatLng,
+    ) -> None:
+        """Render the base map, either from raster tiles or a vector style
+
+        A vector provider is rendered as a single image covering the whole
+        map, because label placement needs the entire viewport. Note that
+        tighten_to_bounds is not applied in that case.
+
+        Parameters:
+            renderer (Renderer): renderer of the static map
+            width (int): width of static map
+            height (int): height of static map
+            zoom (float): zoom of static map
+            center (s2sphere.LatLng): center of static map
+        """
+        if not self._tile_provider.is_vector():
+            renderer.render_tiles(self._fetch_tile, self._objects, self._tighten_to_bounds)
+            return
+
+        assert isinstance(self._tile_provider, VectorTileProvider)
+        backend = select_backend(self._basemap_backend)
+        image_data = backend.render(
+            self._tile_provider.style(),
+            width,
+            height,
+            zoom,
+            center.lng().degrees,
+            center.lat().degrees,
+        )
+        renderer.render_basemap(image_data)
+
     def render_cairo(self, width: int, height: int, attribution: bool = True) -> typing.Any:
         """Render area using cairo
 
@@ -249,7 +303,7 @@ class Context:
 
         renderer = CairoRenderer(trans)
         renderer.render_background(self._background_color)
-        renderer.render_tiles(self._fetch_tile, self._objects, self._tighten_to_bounds)
+        self._render_base(renderer, width, height, zoom, center)
         renderer.render_objects(self._objects, self._tighten_to_bounds)
         if attribution:
             renderer.render_attribution(self._tile_provider.attribution())
@@ -277,7 +331,7 @@ class Context:
 
         renderer = PillowRenderer(trans)
         renderer.render_background(self._background_color)
-        renderer.render_tiles(self._fetch_tile, self._objects, self._tighten_to_bounds)
+        self._render_base(renderer, width, height, zoom, center)
         renderer.render_objects(self._objects, self._tighten_to_bounds)
         if attribution:
             renderer.render_attribution(self._tile_provider.attribution())
@@ -305,7 +359,7 @@ class Context:
 
         renderer = SvgRenderer(trans)
         renderer.render_background(self._background_color)
-        renderer.render_tiles(self._fetch_tile, self._objects, self._tighten_to_bounds)
+        self._render_base(renderer, width, height, zoom, center)
         renderer.render_objects(self._objects, self._tighten_to_bounds)
         renderer.render_attribution(self._tile_provider.attribution())
 
@@ -349,7 +403,7 @@ class Context:
 
     def determine_center_zoom(
         self, width: int, height: int, focused_only: bool = False
-    ) -> typing.Tuple[typing.Optional[s2sphere.LatLng], typing.Optional[int]]:
+    ) -> typing.Tuple[typing.Optional[s2sphere.LatLng], typing.Optional[float]]:
         """return center and zoom of static map
 
         Parameters:
@@ -380,7 +434,7 @@ class Context:
 
     def _determine_zoom(
         self, width: int, height: int, b: typing.Optional[s2sphere.LatLngRect], c: s2sphere.LatLng
-    ) -> typing.Optional[int]:
+    ) -> typing.Optional[float]:
         if b is None:
             b = s2sphere.LatLngRect(c, c)
         else:
@@ -407,6 +461,18 @@ class Context:
             dx -= math.floor(dx)
         dy = math.fabs(max_y - min_y)
 
+        # A vector style is rendered at an arbitrary scale rather than
+        # assembled from discrete tile levels, so it can fit the bounds
+        # exactly instead of stepping down to the next whole zoom.
+        if self._tile_provider.is_vector():
+            fitted = []
+            if dx > 0:
+                fitted.append(math.log2(w / dx))
+            if dy > 0:
+                fitted.append(math.log2(h / dy))
+            if fitted:
+                return self._clamp_zoom(self.zoom_in_range(min(fitted)))
+
         for zoom in range(1, self._tile_provider.max_zoom()):
             tiles = 2**zoom
             if (dx * tiles > w) or (dy * tiles > h):
@@ -421,7 +487,7 @@ class Context:
         lng = b.get_center().lng().degrees
         return s2sphere.LatLng.from_degrees(lat, lng)
 
-    def _adjust_center(self, width: int, height: int, center: s2sphere.LatLng, zoom: int) -> s2sphere.LatLng:
+    def _adjust_center(self, width: int, height: int, center: s2sphere.LatLng, zoom: float) -> s2sphere.LatLng:
         if len(self._objects) == 0:
             return center
 
@@ -457,7 +523,7 @@ class Context:
     def _fetch_tile(self, z: int, x: int, y: int) -> typing.Optional[bytes]:
         return self._tile_downloader.get(self._tile_provider, self._cache_dir, z, x, y)
 
-    def _clamp_zoom(self, zoom: typing.Optional[int]) -> typing.Optional[int]:
+    def _clamp_zoom(self, zoom: typing.Optional[float]) -> typing.Optional[float]:
         if zoom is None:
             return None
         if zoom < 0:
