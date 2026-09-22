@@ -74,3 +74,22 @@ def test_presets() -> None:
 def test_explicit_attribution_wins() -> None:
     p = staticmaps.VectorTileProvider("test", style=STYLE, attribution="mine")
     assert p.attribution() == "mine"
+
+
+def test_pixel_ratio_is_vector_only() -> None:
+    """A raster provider is served at a fixed density, so the ratio must not
+    silently change its output size."""
+    c = staticmaps.Context()
+    c.set_tile_provider(staticmaps.VectorTileProvider("test", style=STYLE))
+    c.set_pixel_ratio(2)
+    assert c.pixel_ratio() == 2
+
+    c.set_tile_provider(staticmaps.tile_provider_OSM)
+    assert c.pixel_ratio() == 1.0
+
+
+def test_bad_pixel_ratio() -> None:
+    c = staticmaps.Context()
+    for bad in (0, -1):
+        with pytest.raises(ValueError):
+            c.set_pixel_ratio(bad)

@@ -43,6 +43,7 @@ class Context:
         self._cache_dir = os.path.join(appdirs.user_cache_dir(LIB_NAME), "tiles")
         self._tighten_to_bounds: bool = False
         self._basemap_backend: str = "auto"
+        self._pixel_ratio: float = 1.0
         self.max_zoom: typing.Optional[int] = None
         self.min_zoom: typing.Optional[int] = None
 
@@ -240,6 +241,65 @@ class Context:
         """
         self._basemap_backend = name
 
+    def set_pixel_ratio(self, ratio: float) -> None:
+        """Set the pixel ratio for vector tile providers
+
+        A ratio of 2 renders the same geographic area at twice the pixel
+        density, the way a HiDPI display or a print job wants it. This is
+        distinct from asking for a larger image, which instead shows more of
+        the world at the same density.
+
+        Object *positions* scale automatically, but object *sizes* -- marker
+        size, line width -- are given in pixels and do not, so scale them by
+        the same ratio to keep their proportions.
+
+        Only vector providers honour this; raster tiles are served at a fixed
+        density.
+
+        Parameters:
+            ratio (float): pixel ratio, e.g. 2.0 for a HiDPI render
+
+        Raises:
+            ValueError: raises value error if the ratio is not positive
+        """
+        if ratio <= 0:
+            raise ValueError(f"Bad pixel ratio: {ratio}")
+        self._pixel_ratio = ratio
+
+    def pixel_ratio(self) -> float:
+        """Return the pixel ratio, which is 1.0 for raster providers
+
+        Returns:
+            float: pixel ratio actually applied
+        """
+        return self._pixel_ratio if self._tile_provider.is_vector() else 1.0
+
+    def _transformer(self, width: int, height: int, zoom: float, center: s2sphere.LatLng) -> Transformer:
+        """Build a transformer covering the rendered pixel area
+
+        At a pixel ratio of r the image is r times larger in each direction
+        while covering the same area, which is exactly what one extra zoom
+        level per doubling describes -- so the projection is shifted by
+        log2(r) rather than the tile grid being rescaled.
+
+        Parameters:
+            width (int): width of static map in logical pixels
+            height (int): height of static map in logical pixels
+            zoom (float): zoom of static map
+            center (s2sphere.LatLng): center of static map
+
+        Returns:
+            Transformer: transformer for the rendered image
+        """
+        ratio = self.pixel_ratio()
+        return Transformer(
+            int(width * ratio),
+            int(height * ratio),
+            zoom + math.log2(ratio),
+            center,
+            self._tile_provider.tile_size(),
+        )
+
     def _render_base(
         self,
         renderer: typing.Any,
@@ -274,6 +334,7 @@ class Context:
             zoom,
             center.lng().degrees,
             center.lat().degrees,
+            self.pixel_ratio(),
         )
         renderer.render_basemap(image_data)
 
@@ -299,7 +360,7 @@ class Context:
         if center is None or zoom is None:
             raise RuntimeError("Cannot render map without center/zoom.")
 
-        trans = Transformer(width, height, zoom, center, self._tile_provider.tile_size())
+        trans = self._transformer(width, height, zoom, center)
 
         renderer = CairoRenderer(trans)
         renderer.render_background(self._background_color)
@@ -327,7 +388,7 @@ class Context:
         if center is None or zoom is None:
             raise RuntimeError("Cannot render map without center/zoom.")
 
-        trans = Transformer(width, height, zoom, center, self._tile_provider.tile_size())
+        trans = self._transformer(width, height, zoom, center)
 
         renderer = PillowRenderer(trans)
         renderer.render_background(self._background_color)
@@ -355,7 +416,7 @@ class Context:
         if center is None or zoom is None:
             raise RuntimeError("Cannot render map without center/zoom.")
 
-        trans = Transformer(width, height, zoom, center, self._tile_provider.tile_size())
+        trans = self._transformer(width, height, zoom, center)
 
         renderer = SvgRenderer(trans)
         renderer.render_background(self._background_color)

@@ -96,6 +96,30 @@ Vector tiles also stay sharp well beyond the zoom their data is published at, be
 geometry is scaled rather than pixels. OpenFreeMap's data stops at zoom 14 but renders
 crisply at zoom 18 and beyond.
 
+### Pixel ratio (HiDPI / print)
+
+`set_pixel_ratio()` renders the same geographic area at a higher pixel density,
+which is what a HiDPI display or a print job wants:
+
+```python
+context.set_pixel_ratio(2)
+image = context.render_cairo(800, 600)   # 1600x1200 px, same area
+```
+
+This is distinct from asking for a larger image: `render_cairo(1600, 1200)` at
+the same zoom shows *twice as much of the world* at the same density, whereas a
+ratio of 2 shows the *same* view drawn twice as finely.
+
+Object positions scale automatically, but object sizes are given in pixels and
+do not, so scale them by the same ratio:
+
+```python
+staticmaps.Marker(latlng, size=int(12 * ratio))
+```
+
+Raster providers ignore the ratio, since their tiles are served at a fixed
+density. See `examples/openfreemap_ratio.py`.
+
 ### Rendering backend
 
 Vector styles are rendered by [pymgl](https://github.com/brendan-ward/pymgl), which
