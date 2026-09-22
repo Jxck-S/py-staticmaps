@@ -1,5 +1,9 @@
 """py-staticmaps - tests for vector tile providers"""
 
+# _resolve_size is exercised directly so every size rule can be tested
+# without a network round trip.
+# pylint: disable=protected-access
+
 # Copyright (c) 2020 Florian Pigorsch; see /LICENSE for licensing information
 
 import json
@@ -93,3 +97,53 @@ def test_bad_pixel_ratio() -> None:
     for bad in (0, -1):
         with pytest.raises(ValueError):
             c.set_pixel_ratio(bad)
+
+
+def _ctx(provider: staticmaps.TileProvider) -> staticmaps.Context:
+    c = staticmaps.Context()
+    c.set_tile_provider(provider)
+    c.set_center(staticmaps.create_latlng(37.7990, -122.4000))
+    c.set_zoom(14)
+    return c
+
+
+def test_size_is_the_resulting_image() -> None:
+    """size names the image you get; logical_size names what the ratio is
+    applied to. Both reach 1080 here, by different routes."""
+    p = staticmaps.VectorTileProvider("test", style=STYLE)
+    assert _ctx(p)._resolve_size(None, None, (1080, 1080), None, None) == (1080, 1080, 1.0)
+    assert _ctx(p)._resolve_size(None, None, (1080, 1080), None, 2) == (540, 540, 2)
+    assert _ctx(p)._resolve_size(None, None, None, (540, 540), 2) == (540, 540, 2)
+
+
+def test_legacy_width_height_still_works() -> None:
+    p = staticmaps.VectorTileProvider("test", style=STYLE)
+    assert _ctx(p)._resolve_size(800, 600, None, None, None) == (800, 600, 1.0)
+
+
+def test_raster_forces_ratio_to_one() -> None:
+    c = _ctx(staticmaps.tile_provider_OSM)
+    c.set_pixel_ratio(2)
+    assert c._resolve_size(None, None, (800, 600), None, None) == (800, 600, 1.0)
+
+
+def test_size_conflicts_are_rejected() -> None:
+    c = _ctx(staticmaps.VectorTileProvider("test", style=STYLE))
+    with pytest.raises(ValueError):
+        c._resolve_size(None, None, (1, 1), (1, 1), None)
+    with pytest.raises(ValueError):
+        c._resolve_size(800, 600, (1, 1), None, None)
+    with pytest.raises(ValueError):
+        c._resolve_size(None, None, None, None, None)
+    with pytest.raises(ValueError):
+        c._resolve_size(800, None, None, None, None)
+    with pytest.raises(ValueError):
+        c._resolve_size(None, None, (0, 100), None, None)
+
+
+def test_explicit_ratio_on_raster_raises() -> None:
+    """Silently ignoring it would make an OSM map come out at the wrong size
+    with no explanation."""
+    c = _ctx(staticmaps.tile_provider_OSM)
+    with pytest.raises(ValueError):
+        c._resolve_size(None, None, (800, 600), None, 2)

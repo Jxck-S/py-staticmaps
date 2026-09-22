@@ -98,17 +98,21 @@ crisply at zoom 18 and beyond.
 
 ### Pixel ratio (HiDPI / print)
 
-`set_pixel_ratio()` renders the same geographic area at a higher pixel density,
-which is what a HiDPI display or a print job wants:
+Every render method takes the image dimensions one of two ways. `size` is the
+image you get; `logical_size` is what the pixel ratio is applied to:
 
 ```python
-context.set_pixel_ratio(2)
-image = context.render_cairo(800, 600)   # 1600x1200 px, same area
+context.render_cairo(size=(1080, 1080))                        # 1080x1080
+context.render_cairo(size=(1080, 1080), pixel_ratio=2)         # 1080x1080, drawn at 2x
+context.render_cairo(logical_size=(540, 540), pixel_ratio=2)   # 1080x1080, same thing
 ```
 
-This is distinct from asking for a larger image: `render_cairo(1600, 1200)` at
-the same zoom shows *twice as much of the world* at the same density, whereas a
-ratio of 2 shows the *same* view drawn twice as finely.
+A pixel ratio renders the same geographic area at a higher density, which is what
+a HiDPI display or a print job wants. That is distinct from asking for a larger
+image: `size=(1600, 1200)` at the same zoom shows *twice as much of the world* at
+the same density, whereas a ratio of 2 shows the *same* view drawn twice as finely.
+
+`set_pixel_ratio()` sets the default for a context when the keyword is omitted.
 
 Object positions scale automatically, but object sizes are given in pixels and
 do not, so scale them by the same ratio:
@@ -117,8 +121,10 @@ do not, so scale them by the same ratio:
 staticmaps.Marker(latlng, size=int(12 * ratio))
 ```
 
-Raster providers ignore the ratio, since their tiles are served at a fixed
-density. See `examples/openfreemap_ratio.py`.
+Raster providers have a fixed tile density, so `pixel_ratio` is rejected for them
+rather than silently ignored; `size` is simply the image you get. A raster provider
+serving "@2x" tiles expresses its density through `tile_size=512` on the provider
+instead. See `examples/openfreemap_ratio.py`.
 
 ### Rendering backend
 
