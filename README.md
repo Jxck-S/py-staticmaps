@@ -52,7 +52,7 @@ context = staticmaps.Context()
 context.set_tile_provider(staticmaps.tile_provider_OpenFreeMapLiberty)
 context.add_object(staticmaps.Marker(staticmaps.create_latlng(37.7955, -122.3937)))
 
-context.render_pillow(800, 600).save("map.png")
+context.render_pillow(size=(800, 600)).save("map.png")
 ```
 
 Three key-free providers are pre-configured, 13 styles in total. All of them were
@@ -118,7 +118,9 @@ Object positions scale automatically, but object sizes are given in pixels and
 do not, so scale them by the same ratio:
 
 ```python
-staticmaps.Marker(latlng, size=int(12 * ratio))
+ratio = 2
+context.add_object(staticmaps.Marker(latlng, size=int(12 * ratio)))
+context.render_cairo(logical_size=(540, 540), pixel_ratio=ratio)
 ```
 
 Raster providers have a fixed tile density, so `pixel_ratio` is rejected for them
@@ -141,6 +143,9 @@ apt-get install -y libegl1 libgl1-mesa-dri xvfb
 export LIBGL_ALWAYS_SOFTWARE=1
 xvfb-run -a --server-args="-screen 0 1024x768x24 -ac +render -noreset" python your_script.py
 ```
+
+This mirrors how pymgl's own CI renders on GPU-less GitHub Actions runners, which is
+the reference to check against if a host needs different Mesa packages.
 
 macOS renders through Metal and needs no xvfb. Without a usable GL stack the process
 *segfaults* rather than raising, so availability is probed in a subprocess.
