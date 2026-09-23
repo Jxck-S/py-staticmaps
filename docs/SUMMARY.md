@@ -19,5 +19,5 @@
     * [Caching](rendering/caching.md)
     * [Focus and bounds](rendering/focus-and-bounds.md)
 * [Command line](cli.md)
-* [Examples](examples/index.md)
-* [Code Reference](reference/index.md)
+* [Examples](examples/)
+* [Code Reference](reference/)
