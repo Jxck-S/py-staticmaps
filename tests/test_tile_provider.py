@@ -163,3 +163,15 @@ def test_raster_2x_and_vector_ratio_cover_the_same_ground() -> None:
     raster_2x = Transformer(1080, 1080, 15, centre, 512)
     vector_2x = Transformer(1080, 1080, 15 + math.log2(2), centre, 256)
     assert abs(span(raster_2x, 1080) - span(vector_2x, 1080)) < 1e-12
+
+
+def test_error_messages_do_not_leak_the_api_key() -> None:
+    """An api key travels in the query string, so an unredacted url in an
+    exception leaks it into logs and tracebacks."""
+    from staticmaps.tile_downloader import redact_url  # pylint: disable=import-outside-toplevel
+
+    assert redact_url("https://x/1/1/1.png?key=SECRET") == "https://x/1/1/1.png?<redacted>"
+    assert redact_url("https://x/1/1/1.png?s=a&api_key=SECRET") == "https://x/1/1/1.png?<redacted>"
+    assert "SECRET" not in redact_url("https://x/1/1/1.png?access-token=SECRET")
+    # a url without a query string is unchanged
+    assert redact_url("https://x/1/1/1.png") == "https://x/1/1/1.png"

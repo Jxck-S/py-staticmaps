@@ -6,6 +6,7 @@ import logging
 import os
 import pathlib
 import typing
+import urllib.parse
 
 import requests  # type: ignore
 import slugify  # type: ignore
@@ -14,6 +15,24 @@ from .meta import GITHUB_URL, LIB_NAME, VERSION
 from .tile_provider import TileProvider
 
 REQUEST_TIMEOUT = 10
+
+
+def redact_url(url: str) -> str:
+    """Strip the query string from a url so it is safe to put in a message
+
+    A provider's api key travels in the query string, so an unredacted url in
+    an exception or a log leaks the key to wherever that text ends up.
+
+    Parameters:
+        url (str): url, possibly carrying an api key
+
+    Returns:
+        str: url without its query string
+    """
+    parts = urllib.parse.urlsplit(url)
+    if not parts.query:
+        return url
+    return urllib.parse.urlunsplit((parts.scheme, parts.netloc, parts.path, "", "")) + "?<redacted>"
 
 
 class TileDownloader:
@@ -98,7 +117,7 @@ class TileDownloader:
         if res.status_code == 200:
             data = res.content
         else:
-            raise RuntimeError(f"fetch {url} yields {res.status_code}")
+            raise RuntimeError(f"fetch {redact_url(url)} yields {res.status_code}")
 
         if file_name is not None:
             pathlib.Path(os.path.dirname(file_name)).mkdir(parents=True, exist_ok=True)
