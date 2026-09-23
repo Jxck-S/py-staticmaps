@@ -16,7 +16,7 @@ Both trade geographic coverage for density in exactly the same way, so
 
 cover the same ground and produce the same 1080x1080 image.
 
-Needs a free CARTO api key in CARTO_API_KEY; see carto.com/basemaps/apikey
+Needs a free CARTO api key in API_KEY_CARTO; see carto.com/basemaps/apikey
 """
 
 # Copyright (c) 2020 Florian Pigorsch; see /LICENSE for licensing information
@@ -25,7 +25,7 @@ import os
 
 import staticmaps
 
-KEY = os.environ.get("CARTO_API_KEY")
+KEY = os.environ.get("API_KEY_CARTO")
 ZOOM = 15
 CENTER = staticmaps.create_latlng(37.7990, -122.4000)
 
@@ -54,7 +54,7 @@ def build(provider: staticmaps.TileProvider, density: int) -> staticmaps.Context
 
 
 if KEY is None:
-    print("Set CARTO_API_KEY to run this example; see carto.com/basemaps/apikey")
+    print("Set API_KEY_CARTO to run this example; see carto.com/basemaps/apikey")
 elif not staticmaps.cairo_is_supported():
     print('You need to install the "cairo" module to run this example.')
 else:

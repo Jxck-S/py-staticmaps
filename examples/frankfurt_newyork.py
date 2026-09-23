@@ -7,6 +7,8 @@
 # Use of this source code is governed by a MIT-style
 # license that can be found in the LICENSE file.
 
+import os
+
 import staticmaps
 
 context = staticmaps.Context()
@@ -53,7 +55,13 @@ with open("frankfurt_newyork.tight.svg", "w", encoding="utf-8") as f:
     svg_image.write(f, pretty=True)
 
 context2 = staticmaps.Context()
-context2.set_tile_provider(staticmaps.tile_provider_CartoDarkNoLabels)
+# CARTO requires an api key; fall back to a key-free provider without one
+dark_provider = staticmaps.tile_provider_CartoDarkNoLabels
+if os.environ.get("API_KEY_CARTO"):
+    dark_provider.set_api_key(os.environ["API_KEY_CARTO"])
+else:
+    dark_provider = staticmaps.tile_provider_OSM
+context2.set_tile_provider(dark_provider)
 context2.add_object(staticmaps.Marker(frankfurt, color=staticmaps.GREEN, size=12))
 context2.add_object(staticmaps.Marker(newyork, color=staticmaps.RED, size=12))
 context2.add_object(staticmaps.Bounds([warsaw, los_angeles]))

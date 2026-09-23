@@ -1,7 +1,7 @@
 site_name: py-staticmaps
 site_description: "A python module to create static map images (PNG, SVG) with markers, geodesic lines, etc."
 
-repo_url: https://github.com/flopp/py-staticmaps
+repo_url: https://github.com/Jxck-S/py-staticmaps
 repo_name: py-staticmaps
 
 use_directory_urls: false
@@ -33,6 +33,7 @@ plugins:
   - gen-files:
       scripts:
       - docs/gen_ref_pages.py
+      - docs/gen_examples.py
   - literate-nav:
       nav_file: SUMMARY.md
   - mkdocstrings:
@@ -43,8 +44,11 @@ plugins:
           options:
             show_root_heading: true
             show_source: true
-      watch:
-        - staticmaps
+
+# mkdocstrings dropped its own watch option; mkdocs has one
+watch:
+  - staticmaps
+  - examples
 
 markdown_extensions:
   - pymdownx.highlight

@@ -123,7 +123,7 @@ class Renderer(ABC):
         """Return "cumulated" boundaries of all objects
 
         Parameters:
-            objects typing.List["Object"]): list of all objects to be rendered in the static map
+            objects (typing.List["Object"]): list of all objects to be rendered in the static map
 
         Returns:
             s2sphere.LatLngRect: LatLngRect object with "cumulated" boundaries of all objects

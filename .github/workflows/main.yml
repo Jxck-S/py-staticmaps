@@ -64,23 +64,11 @@ jobs:
         pip install -r requirements-examples.txt
     - name: Build examples
       env:
+          API_KEY_CARTO: ${{ secrets.API_KEY_CARTO }}
           API_KEY_JAWG: ${{ secrets.API_KEY_JAWG }}
           API_KEY_STADIA: ${{ secrets.API_KEY_STADIA }}
       run: |
-        cd examples
-        mkdir build
-        PYTHONPATH=.. python custom_objects.py
-        PYTHONPATH=.. python draw_gpx.py running.gpx
-        PYTHONPATH=.. python frankfurt_newyork.py
-        PYTHONPATH=.. python freiburg_area.py
-        PYTHONPATH=.. python geodesic_circles.py
-        PYTHONPATH=.. python idl.py
-        PYTHONPATH=.. python tile_providers.py
-        PYTHONPATH=.. python us_capitals.py
-        (ls        *.svg && mv        *.svg build/.) || echo "no svg files found!"
-        (ls *pillow*.png && mv *pillow*.png build/.) || echo "no pillow png files found!"
-        (ls  *cairo*.png && mv  *cairo*.png build/.) || echo "no cairo png files found!"
-        cd -
+        PYTHONPATH=. python examples/run_examples.py
     - name: Archive examples
       uses: actions/upload-artifact@v7
       with:
@@ -103,7 +91,7 @@ jobs:
         export GIT_USER=${{ github.actor }}
         git config --global core.autocrlf input
     - name: Git clone
-      run: git clone https://github.com/lowtower/py-staticmaps --branch assets assets
+      run: git clone https://github.com/${{ github.repository }} --branch assets assets
     - name: Download artifacts
       uses: actions/download-artifact@v8
       with:
