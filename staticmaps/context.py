@@ -579,12 +579,8 @@ class Context:
         """return center and zoom of static map
 
         Parameters:
-            width (typing.Optional[int]): legacy width, superseded by size/logical_size
-            height (typing.Optional[int]): legacy height, superseded by size/logical_size
-            size (typing.Optional[typing.Tuple[int, int]]): size of the resulting image
-            logical_size (typing.Optional[typing.Tuple[int, int]]): size before the pixel
-                ratio is applied, so the image comes out ratio times larger
-            pixel_ratio (typing.Optional[float]): pixel ratio, vector providers only
+            width (int): width of static map in logical pixels
+            height (int): height of static map in logical pixels
             focused_only (bool): fit to the focused objects only
 
         Returns:

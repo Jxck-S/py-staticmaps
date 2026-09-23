@@ -13,11 +13,7 @@ from .coordinates import create_latlng
 
 
 class Circle(Area):
-    """Render a circle using different renderers
-
-    Parameters:
-        master: an area object
-    """
+    """Render a circle using different renderers"""
 
     def __init__(
         self,

@@ -16,11 +16,7 @@ from .svg_renderer import SvgRenderer
 
 
 class Area(Line):
-    """Render an area using different renderers
-
-    Parameters:
-        master: A line object
-    """
+    """Render an area using different renderers"""
 
     def __init__(
         self, latlngs: typing.List[s2sphere.LatLng], fill_color: Color = RED, color: Color = TRANSPARENT, width: int = 0

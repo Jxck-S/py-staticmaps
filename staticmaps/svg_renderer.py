@@ -182,7 +182,7 @@ class SvgRenderer(Renderer):
         """Render attribution from given tiles provider
 
         Parameters:
-            attribution (typing.Optional[str]:): Attribution for the given tiles provider
+            attribution (typing.Optional[str]): Attribution for the given tiles provider
         """
         if (attribution is None) or (attribution == ""):
             return

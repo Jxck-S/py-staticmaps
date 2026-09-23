@@ -2,7 +2,7 @@ PROJECT=staticmaps
 SRC_CORE=staticmaps
 SRC_TEST=tests
 SRC_EXAMPLES=examples
-SRC_COMPLETE=$(SRC_CORE) $(SRC_TEST) $(SRC_EXAMPLES) docs/gen_ref_pages.py
+SRC_COMPLETE=$(SRC_CORE) $(SRC_TEST) $(SRC_EXAMPLES) docs/gen_ref_pages.py docs/gen_examples.py
 PYTHON=python3
 
 help: ## Print help for each target
@@ -39,6 +39,7 @@ setup: ## Setup virtual environment
 	.env/bin/pip install --upgrade --requirement requirements.txt
 	.env/bin/pip install --upgrade --requirement requirements-dev.txt
 	.env/bin/pip install --upgrade --requirement requirements-examples.txt
+	.env/bin/pip install --upgrade --requirement requirements-docs.txt
 
 .PHONY: install
 install: setup ## install package
@@ -81,21 +82,11 @@ format: ## Format the code
 
 .PHONY: run-examples
 run-examples: ## Generate example images
-	(cd examples && rm -r build)
-	(cd examples && PYTHONPATH=.. ../.env/bin/python custom_objects.py)
-	(cd examples && PYTHONPATH=.. ../.env/bin/python draw_gpx.py running.gpx)
-	(cd examples && PYTHONPATH=.. ../.env/bin/python frankfurt_newyork.py)
-	(cd examples && PYTHONPATH=.. ../.env/bin/python freiburg_area.py)
-	(cd examples && PYTHONPATH=.. ../.env/bin/python geodesic_circles.py)
-	(cd examples && PYTHONPATH=.. ../.env/bin/python tile_providers.py)
-	(cd examples && PYTHONPATH=.. ../.env/bin/python us_capitals.py)
-	(cd examples && PYTHONPATH=.. ../.env/bin/python idl.py)
-	(cd examples && PYTHONPATH=.. ../.env/bin/python openfreemap.py)
-	(cd examples && PYTHONPATH=.. ../.env/bin/python openfreemap_ratio.py)
-	(cd examples && mkdir -p build)
-	(cd examples && ls        *.svg 2>/dev/null && mv        *.svg build/.) || echo "no svg files found!"
-	(cd examples && ls *pillow*.png 2>/dev/null && mv *pillow*.png build/.) || echo "no pillow png files found!"
-	(cd examples && ls  *cairo*.png 2>/dev/null && mv  *cairo*.png build/.) || echo "no cairo png files found!"
+	PYTHONPATH=. .env/bin/python examples/run_examples.py
+
+.PHONY: documentation-serve
+documentation-serve: ## Serve the documentation locally
+	.env/bin/python -m mkdocs serve
 
 .PHONY: test
 test: ## Test the code
@@ -121,4 +112,4 @@ upload-package: ## Upload package
 
 .PHONY: documentation
 documentation: ## Generate documentation
-	.env/bin/python -m mkdocs build --clean --verbose
+	.env/bin/python -m mkdocs build --clean --strict

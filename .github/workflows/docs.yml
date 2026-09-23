@@ -1,0 +1,61 @@
+name: Docs
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+# one deployment at a time, and never cancel one halfway
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install cairo
+        run: sudo apt-get update && sudo apt-get install -y libcairo2-dev
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+          cache: pip
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          pip install -r requirements.txt
+          pip install -r requirements-cairo.txt
+          pip install -r requirements-examples.txt
+          pip install -r requirements-docs.txt
+      - name: Render the examples
+        # examples needing a key or an optional dependency skip themselves,
+        # so a missing secret costs a picture rather than the build
+        env:
+          API_KEY_CARTO: ${{ secrets.API_KEY_CARTO }}
+          API_KEY_JAWG: ${{ secrets.API_KEY_JAWG }}
+          API_KEY_STADIA: ${{ secrets.API_KEY_STADIA }}
+        run: PYTHONPATH=. python examples/run_examples.py
+      - name: Build the site
+        run: python -m mkdocs build --clean --strict
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: site
+
+  deploy:
+    # only main publishes; a pull request builds to prove it still builds
+    if: github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

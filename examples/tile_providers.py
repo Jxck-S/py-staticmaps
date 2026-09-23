@@ -20,17 +20,13 @@ context.add_object(staticmaps.Marker(p2, color=staticmaps.GREEN))
 context.add_object(staticmaps.Marker(p3, color=staticmaps.YELLOW))
 
 for name, provider in staticmaps.default_tile_providers.items():
-    # Jawg and Stadia require access tokens
-    if "jawg" in provider.name():
-        if "API_KEY_JAWG" in os.environ:
-            provider.set_api_key(os.environ.get("API_KEY_JAWG"))  # type: ignore
-        else:
+    if provider.requires_key():
+        # CARTO, Jawg and Stadia each need a key; take it from API_KEY_<VENDOR>
+        vendor = provider.name().split("-")[0].upper()
+        api_key = os.environ.get(f"API_KEY_{vendor}")
+        if api_key is None:
             continue
-    if "stadia" in provider.name():
-        if "API_KEY_STADIA" in os.environ:
-            provider.set_api_key(os.environ.get("API_KEY_STADIA"))  # type: ignore
-        else:
-            continue
+        provider.set_api_key(api_key)
     context.set_tile_provider(provider)
 
     # render png via pillow

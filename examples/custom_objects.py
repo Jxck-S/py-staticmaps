@@ -9,6 +9,8 @@ try:
 except ImportError:
     pass
 
+import os
+
 import s2sphere  # type: ignore
 
 import staticmaps
@@ -185,7 +187,13 @@ context.add_object(TextLabel(p1, "X"))
 context.add_object(TextLabel(p2, "Label"))
 context.add_object(TextLabel(p3, "This is a very long text label"))
 
-context.set_tile_provider(staticmaps.tile_provider_CartoDarkNoLabels)
+# CARTO requires an api key; fall back to a key-free provider without one
+dark_provider = staticmaps.tile_provider_CartoDarkNoLabels
+if os.environ.get("API_KEY_CARTO"):
+    dark_provider.set_api_key(os.environ["API_KEY_CARTO"])
+else:
+    dark_provider = staticmaps.tile_provider_OSM
+context.set_tile_provider(dark_provider)
 
 # render png via pillow
 image = context.render_pillow(800, 500)
