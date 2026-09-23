@@ -3,7 +3,6 @@
 # Copyright (c) 2020 Florian Pigorsch; see /LICENSE for licensing information
 
 import pathlib
-import re
 
 SUMMARY = pathlib.Path("docs/SUMMARY.md")
 
