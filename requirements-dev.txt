@@ -1,5 +1,11 @@
-# Runtime requirements
---requirement requirements.txt
+# Requirements for developing py-staticmaps.
+#
+# The runtime requirements are deliberately not pulled in with --requirement:
+# GitHub's dependency graph evaluates each file on its own, so a relative
+# reference to another file breaks it and leaves the pip graph empty. Install
+# requirements.txt alongside this one; the Makefile and CI both do.
+#
+# The documentation toolchain lives in requirements-docs.txt.
 
 # Linting/Tooling
 autopep8
@@ -20,13 +26,3 @@ pytest-cov
 
 # Building
 twine
-
-# Documentation
-mkdocs
-mkdocstrings
-mkdocstrings-python
-mkdocs-gen-files
-mkdocs-literate-nav
-mkdocs-material
-mkdocs-section-index
-Pygments
