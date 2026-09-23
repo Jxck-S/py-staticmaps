@@ -382,7 +382,9 @@ class Context:
             raise ValueError(f"Bad pixel ratio: {ratio}")
         if pixel_ratio is not None and pixel_ratio != 1 and not self._tile_provider.is_vector():
             raise ValueError(
-                "pixel_ratio is only supported by vector tile providers; raster tiles have a fixed density"
+                "pixel_ratio is only supported by vector tile providers. A raster provider gets its "
+                'density from its tiles, so use a provider serving "@2x" tiles (tile_size=512) and '
+                "request the larger size instead."
             )
         if not self._tile_provider.is_vector():
             ratio = 1.0

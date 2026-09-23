@@ -33,7 +33,78 @@ pip install py-staticmaps[cairo]
 ```
 `py-staticmaps` uses `pycairo` for creating anti-aliased raster-graphics, so make sure `libcairo2` is installed on your system (on Ubuntu just install the `libcairo2-dev` package, i.e. `sudo apt install libcairo2-dev`).
 
-### Vector tiles (OpenFreeMap)
+### Tile provider api keys
+
+Most hosted raster providers now require an api key. They agree on passing it as a
+query parameter and disagree on what to call it, so the provider names the parameter
+and you supply the key:
+
+```python
+provider = staticmaps.tile_provider_Carto
+provider.set_api_key("your-key")
+
+context.set_tile_provider(provider)
+```
+
+| Provider | Parameter | Free tier |
+|---|---|---|
+| [CARTO](https://carto.com/basemaps/apikey) | `key` | 5M tiles/month, non-commercial |
+| [Stadia Maps](https://stadiamaps.com) | `api_key` | yes |
+| [Jawg](https://www.jawg.io) | `access-token` | yes |
+
+A provider declares this with `key_param`, and `requires_key=True` when it refuses to
+serve tiles without one:
+
+```python
+staticmaps.TileProvider(
+    "my-provider",
+    url_pattern="https://tiles.example.com/$z/$x/$y.png",
+    key_param="key",
+    requires_key=True,
+)
+```
+
+Fetching a tile from a provider that requires a key without setting one raises a
+`ValueError` rather than failing quietly. That matters because CARTO answers
+**HTTP 200 with a watermarked tile** when the key is missing, so a silent pass
+produces a ruined map with no error anywhere. Tiles already in the cache are served
+without a key, since they have been fetched already.
+
+`OSM` and `ArcGIS` need no key and are unaffected.
+
+## HiDPI raster tiles
+
+Some providers serve "@2x" tiles: the tile covers the same ground as a 256px one but
+carries four times the pixels. Such a provider declares `tile_size=512`, which
+`pixel_density()` reports as `2.0`.
+
+```python
+context.set_tile_provider(staticmaps.tile_provider_CartoVoyager2x)
+context.set_zoom(15)
+context.render_cairo(size=(1080, 1080))   # covers half the ground, at twice the density
+```
+
+**Switching to an "@2x" provider without changing the requested size halves the
+geographic coverage.** That is the same trade `set_pixel_ratio()` makes for vector
+providers, and the two are exactly equivalent:
+
+```python
+# identical coverage, identical 1080x1080 output
+context.render_cairo(size=(1080, 1080))                        # raster, tile_size=512
+context.render_cairo(logical_size=(540, 540), pixel_ratio=2)   # vector, pixel_ratio=2
+```
+
+To keep your current framing and gain the pixels, halve the requested size instead:
+
+```python
+context.render_cairo(size=(540, 540))     # 256px tiles -> 540x540
+context.render_cairo(size=(1080, 1080))   # 512px tiles -> 1080x1080, same ground
+```
+
+Raster density comes from the tiles a provider serves, so `pixel_ratio` is rejected
+for raster providers; see `examples/tile_size_2x.py`.
+
+## Vector tiles (OpenFreeMap)
 ```shell
 pip install py-staticmaps[pymgl]
 ```
