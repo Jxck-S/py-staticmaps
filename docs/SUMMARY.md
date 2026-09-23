@@ -1,3 +1,3 @@
 * [Start](index.md)
-* [Examples](examples/)
-* [Code Reference](reference/)
+* [Examples](examples/index.md)
+* [Code Reference](reference/index.md)
