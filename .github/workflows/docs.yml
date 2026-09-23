@@ -17,8 +17,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - name: Install cairo
-        run: sudo apt-get update && sudo apt-get install -y libcairo2-dev
+      - name: Install cairo and the headless GL stack
+        # pymgl renders the vector examples through OpenGL. There is no GPU
+        # here, so Mesa's llvmpipe does it in software, which needs a display
+        # for the GL stack to attach to.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libcairo2-dev libegl1 libgl1-mesa-dri xvfb
       - uses: actions/setup-python@v7
         with:
           python-version: "3.14"
@@ -30,6 +35,7 @@ jobs:
           pip install -r requirements-cairo.txt
           pip install -r requirements-examples.txt
           pip install -r requirements-docs.txt
+          pip install -r requirements-pymgl.txt
       - name: Render the examples
         # examples needing a key or an optional dependency skip themselves,
         # so a missing secret costs a picture rather than the build
@@ -37,7 +43,10 @@ jobs:
           API_KEY_CARTO: ${{ secrets.API_KEY_CARTO }}
           API_KEY_JAWG: ${{ secrets.API_KEY_JAWG }}
           API_KEY_STADIA: ${{ secrets.API_KEY_STADIA }}
-        run: PYTHONPATH=. python examples/run_examples.py
+          LIBGL_ALWAYS_SOFTWARE: 1
+        run: |
+          xvfb-run -a --server-args="-screen 0 1024x768x24 -ac +render -noreset" \
+            env PYTHONPATH=. python examples/run_examples.py
       - name: Build the site
         run: python -m mkdocs build --clean --strict
       - name: Upload artifact

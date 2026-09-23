@@ -39,6 +39,11 @@ def main() -> None:
         mkdocs_gen_files.set_edit_path(full_doc_path, path)
         # mkdocs_gen_files.set_edit_path(full_doc_path, Path("../") / path)
 
+    # the navigation links to reference/, so the directory needs an index
+    with mkdocs_gen_files.open(f"{DIRECTORY}/index.md", "w") as index_file:
+        index_file.write("# Code Reference\n\n")
+        index_file.write(f"Every public module of `{TOP_LEVEL_NAME}`, generated from its docstrings.\n")
+
     with mkdocs_gen_files.open(f"{DIRECTORY}/SUMMARY.md", "w") as nav_file:
         nav_file.writelines(nav.build_literate_nav())
 
