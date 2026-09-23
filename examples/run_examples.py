@@ -81,8 +81,13 @@ def run(script: pathlib.Path, timeout: int) -> typing.Tuple[bool, str, typing.Li
         path.replace(BUILD / path.name)
 
     if result.returncode != 0:
-        reason = (result.stderr or result.stdout or "").strip().splitlines()
-        return False, reason[-1][:100] if reason else f"exit {result.returncode}", names
+        output = (result.stderr or result.stdout or "").strip()
+        if output:
+            # the last line is rarely the whole story, so keep the tail
+            for line in output.splitlines()[-6:]:
+                print(f"        | {line[:140]}")
+        lines = output.splitlines()
+        return False, lines[-1][:100] if lines else f"exit {result.returncode}", names
     if not produced:
         # an example that prints why it is skipping rather than failing
         note = (result.stdout or "").strip().splitlines()
