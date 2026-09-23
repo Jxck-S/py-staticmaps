@@ -70,6 +70,7 @@ setuptools.setup(
     install_requires=_read_reqs("requirements.txt"),
     extras_require={
         "cairo": _read_reqs("requirements-cairo.txt"),
+        "pymgl": _read_reqs("requirements-pymgl.txt"),
         "dev": _read_reqs("requirements-dev.txt"),
         "examples": _read_reqs("requirements-examples.txt"),
     },

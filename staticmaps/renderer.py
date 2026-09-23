@@ -97,6 +97,20 @@ class Renderer(ABC):
             area (Area): area object
         """
 
+    def render_basemap(self, image_data: bytes) -> None:
+        """Render a pre-rendered basemap image covering the whole map
+
+        Used instead of render_tiles for vector tile providers, whose style is
+        rendered as one image rather than tile by tile.
+
+        Parameters:
+            image_data (bytes): PNG image data, sized to the full map
+
+        Raises:
+            NotImplementedError: if the renderer does not support basemaps
+        """
+        raise NotImplementedError(f"{type(self).__name__} does not support vector basemaps")
+
     @abstractmethod
     def render_attribution(self, attribution: typing.Optional[str]) -> None:
         """Render attribution from given tiles provider

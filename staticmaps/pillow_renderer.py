@@ -27,7 +27,7 @@ class PillowRenderer(Renderer):
         Renderer.__init__(self, transformer)
         self._image = PIL_Image.new("RGBA", (self._trans.image_width(), self._trans.image_height()))
         self._draw = PIL_ImageDraw.Draw(self._image)
-        self._offset_x = 0
+        self._offset_x: float = 0
 
     def draw(self) -> PIL_ImageDraw.ImageDraw:
         """
@@ -47,12 +47,12 @@ class PillowRenderer(Renderer):
         """
         return self._image
 
-    def offset_x(self) -> int:
+    def offset_x(self) -> float:
         """
         offset_x Return the offset in x direction
 
         Returns:
-            int: Offset in x direction
+            float: Offset in x direction
         """
         return self._offset_x
 
@@ -136,6 +136,14 @@ class PillowRenderer(Renderer):
                 except RuntimeError:
                     pass
 
+    def render_basemap(self, image_data: bytes) -> None:
+        """Render a pre-rendered basemap image covering the whole map
+
+        Parameters:
+            image_data (bytes): PNG image data, sized to the full map
+        """
+        self.paste(self.create_image(image_data), (0, 0))
+
     def render_attribution(self, attribution: typing.Optional[str]) -> None:
         """Render attribution from given tiles provider
 
@@ -168,7 +176,7 @@ class PillowRenderer(Renderer):
         Returns:
             typing.Optional[PIL_Image.Image]: pillow image
         """
-        image_data = download(self._trans.zoom(), x, y)
+        image_data = download(int(self._trans.zoom()), x, y)
         if image_data is None:
             return None
         return PIL_Image.open(io.BytesIO(image_data))

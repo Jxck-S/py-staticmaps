@@ -4,6 +4,7 @@
 
 # flake8: noqa
 from .area import Area
+from .basemap import BasemapBackend, PyMGLBackend, select_backend
 from .bounds import Bounds
 from .cairo_renderer import CairoRenderer, cairo_is_supported
 from .circle import Circle
@@ -29,8 +30,9 @@ from .line import Line
 from .marker import Marker
 from .meta import GITHUB_URL, LIB_NAME, VERSION
 from .object import Object, PixelBoundsT
-from .point import Point
 from .pillow_renderer import PillowRenderer
+from .point import Point
+from .square import Square
 from .svg_renderer import SvgRenderer
 from .tile_downloader import TileDownloader
 from .tile_provider import (
@@ -47,8 +49,27 @@ from .tile_provider import (
     tile_provider_StamenToner,
     tile_provider_StamenTonerLite,
 )
-from .square import Square
 from .transformer import Transformer
+from .vector_tile_provider import (
+    VectorTileProvider,
+    default_vector_tile_providers,
+    maptoolkit,
+    openfreemap,
+    tile_provider_MaptoolkitDark,
+    tile_provider_MaptoolkitLight,
+    tile_provider_MaptoolkitStreet,
+    tile_provider_OpenFreeMapBright,
+    tile_provider_OpenFreeMapDark,
+    tile_provider_OpenFreeMapFiord,
+    tile_provider_OpenFreeMapLiberty,
+    tile_provider_OpenFreeMapPositron,
+    tile_provider_VersaTilesColorful,
+    tile_provider_VersaTilesEclipse,
+    tile_provider_VersaTilesGraybeard,
+    tile_provider_VersaTilesNeutrino,
+    tile_provider_VersaTilesShadow,
+    versatiles,
+)
 
 __all__ = [
     "Area",
@@ -100,4 +121,25 @@ __all__ = [
     "tile_provider_StamenTonerLite",
     "Square",
     "Transformer",
+    "BasemapBackend",
+    "PyMGLBackend",
+    "select_backend",
+    "VectorTileProvider",
+    "default_vector_tile_providers",
+    "openfreemap",
+    "maptoolkit",
+    "versatiles",
+    "tile_provider_OpenFreeMapBright",
+    "tile_provider_OpenFreeMapDark",
+    "tile_provider_OpenFreeMapFiord",
+    "tile_provider_OpenFreeMapLiberty",
+    "tile_provider_OpenFreeMapPositron",
+    "tile_provider_MaptoolkitDark",
+    "tile_provider_MaptoolkitLight",
+    "tile_provider_MaptoolkitStreet",
+    "tile_provider_VersaTilesColorful",
+    "tile_provider_VersaTilesEclipse",
+    "tile_provider_VersaTilesGraybeard",
+    "tile_provider_VersaTilesNeutrino",
+    "tile_provider_VersaTilesShadow",
 ]

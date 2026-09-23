@@ -17,8 +17,10 @@ class TileProvider:
         api_key: typing.Optional[str] = None,
         attribution: typing.Optional[str] = None,
         max_zoom: int = 24,
+        tile_size: int = 256,
     ) -> None:
         self._name = name
+        self._tile_size = tile_size
         self._url_pattern = string.Template(url_pattern)
         self._shards = shards
         self._api_key = api_key
@@ -37,6 +39,7 @@ class TileProvider:
             and self._api_key == other._api_key
             and self._attribution == other._attribution
             and self._max_zoom == other._max_zoom
+            and self._tile_size == other._tile_size
         )
 
     def set_api_key(self, key: str) -> None:
@@ -64,14 +67,26 @@ class TileProvider:
         """
         return self._attribution
 
-    @staticmethod
-    def tile_size() -> int:
+    def tile_size(self) -> int:
         """Return the tile size
+
+        A provider serving "@2x" tiles returns 512: the tile covers the same
+        ground as a 256px one but carries four times the pixels, which is how
+        raster providers express a high density display.
 
         Returns:
             int: tile size
         """
-        return 256
+        return self._tile_size
+
+    @staticmethod
+    def is_vector() -> bool:
+        """Return whether this provider needs a basemap backend
+
+        Returns:
+            bool: False for raster tile providers
+        """
+        return False
 
     def max_zoom(self) -> int:
         """Return the maximum zoom of the tile provider

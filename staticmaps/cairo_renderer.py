@@ -150,6 +150,18 @@ class CairoRenderer(Renderer):
                 except RuntimeError:
                     pass
 
+    def render_basemap(self, image_data: bytes) -> None:
+        """Render a pre-rendered basemap image covering the whole map
+
+        Parameters:
+            image_data (bytes): PNG image data, sized to the full map
+        """
+        surface = self.create_image(image_data)
+        self._context.save()
+        self._context.set_source_surface(surface)
+        self._context.paint()
+        self._context.restore()
+
     def render_attribution(self, attribution: typing.Optional[str]) -> None:
         """Render attribution from given tiles provider
 
@@ -191,7 +203,7 @@ class CairoRenderer(Renderer):
         Returns:
             typing.Optional[cairo_ImageSurface]: cairo image surface
         """
-        image_data = download(self._trans.zoom(), x, y)
+        image_data = download(int(self._trans.zoom()), x, y)
         if image_data is None:
             return None
         return self.create_image(image_data)

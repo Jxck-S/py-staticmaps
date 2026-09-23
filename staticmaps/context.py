@@ -1,5 +1,7 @@
 """py-staticmaps - Context"""
 
+# pylint: disable=too-many-lines
+
 # py-staticmaps
 # Copyright (c) 2022 Florian Pigorsch; see /LICENSE for licensing information
 
@@ -12,6 +14,7 @@ import s2sphere  # type: ignore
 import svgwrite  # type: ignore
 from PIL import Image as PIL_Image  # type: ignore
 
+from .basemap import select_backend
 from .cairo_renderer import CairoRenderer, cairo_is_supported
 from .color import Color
 from .meta import LIB_NAME
@@ -21,23 +24,26 @@ from .svg_renderer import SvgRenderer
 from .tile_downloader import TileDownloader
 from .tile_provider import TileProvider, tile_provider_OSM
 from .transformer import Transformer
+from .vector_tile_provider import VectorTileProvider
 
 
 class Context:
     """Context"""
 
-    # pylint: disable=too-many-instance-attributes
+    # pylint: disable=too-many-instance-attributes,too-many-public-methods
     def __init__(self) -> None:
         self._background_color: typing.Optional[Color] = None
         self._objects: typing.List[Object] = []
         self._focused_objects: typing.List[Object] = []
         self._focused_only: bool = False
         self._center: typing.Optional[s2sphere.LatLng] = None
-        self._zoom: typing.Optional[int] = None
+        self._zoom: typing.Optional[float] = None
         self._tile_provider = tile_provider_OSM
         self._tile_downloader = TileDownloader()
         self._cache_dir = os.path.join(appdirs.user_cache_dir(LIB_NAME), "tiles")
         self._tighten_to_bounds: bool = False
+        self._basemap_backend: str = "auto"
+        self._pixel_ratio: float = 1.0
         self.max_zoom: typing.Optional[int] = None
         self.min_zoom: typing.Optional[int] = None
 
@@ -67,14 +73,14 @@ class Context:
         self.max_zoom = max_zoom
         self.min_zoom = min_zoom
 
-    def zoom_in_range(self, zoom: int) -> int:
+    def zoom_in_range(self, zoom: float) -> float:
         """Clamp a zoom level to the user defined range, not the tile provider's
 
         Parameters:
-            zoom (int): zoom level
+            zoom (float): zoom level
 
         Returns:
-            int: zoom level in bounds
+            float: zoom level in bounds
         """
         if self.max_zoom and zoom > self.max_zoom:
             return self.max_zoom
@@ -95,7 +101,7 @@ class Context:
         if self.max_zoom is None and self.min_zoom is None:
             if self._zoom is None:
                 raise ValueError("no zoom to load: call set_zoom or set_max_min_zoom first")
-            self._tile_downloader.load_tiles_to_mem(self._tile_provider, self._zoom, self._cache_dir)
+            self._tile_downloader.load_tiles_to_mem(self._tile_provider, int(self._zoom), self._cache_dir)
         elif self.max_zoom and self.min_zoom:
             for zoom in range(self.min_zoom, self.max_zoom + 1):
                 self._tile_downloader.load_tiles_to_mem(self._tile_provider, zoom, self._cache_dir)
@@ -105,11 +111,15 @@ class Context:
         self._center = None
         self._zoom = None
 
-    def set_zoom(self, zoom: int) -> None:
+    def set_zoom(self, zoom: float) -> None:
         """Set zoom for static map
 
+        Vector tile providers accept a fractional zoom; raster providers are
+        served from discrete tile levels, so a fractional value there only
+        rescales the same tiles.
+
         Parameters:
-            zoom (int): zoom for static map
+            zoom (float): zoom for static map
 
         Raises:
             ValueError: raises value error for invalid zoom factors
@@ -223,12 +233,195 @@ class Context:
             if obj in self._focused_objects:
                 self._focused_objects.remove(obj)
 
-    def render_cairo(self, width: int, height: int, attribution: bool = True) -> typing.Any:
+    def set_basemap_backend(self, name: str) -> None:
+        """Set the backend used to render vector tile providers
+
+        Parameters:
+            name (str): "auto" or "pymgl"
+        """
+        self._basemap_backend = name
+
+    def set_pixel_ratio(self, ratio: float) -> None:
+        """Set the pixel ratio for vector tile providers
+
+        A ratio of 2 renders the same geographic area at twice the pixel
+        density, the way a HiDPI display or a print job wants it. This is
+        distinct from asking for a larger image, which instead shows more of
+        the world at the same density.
+
+        Object *positions* scale automatically, but object *sizes* -- marker
+        size, line width -- are given in pixels and do not, so scale them by
+        the same ratio to keep their proportions.
+
+        Only vector providers honour this; raster tiles are served at a fixed
+        density.
+
+        Parameters:
+            ratio (float): pixel ratio, e.g. 2.0 for a HiDPI render
+
+        Raises:
+            ValueError: raises value error if the ratio is not positive
+        """
+        if ratio <= 0:
+            raise ValueError(f"Bad pixel ratio: {ratio}")
+        self._pixel_ratio = ratio
+
+    def pixel_ratio(self) -> float:
+        """Return the pixel ratio, which is 1.0 for raster providers
+
+        Returns:
+            float: pixel ratio actually applied
+        """
+        return self._pixel_ratio if self._tile_provider.is_vector() else 1.0
+
+    def _transformer(self, width: int, height: int, zoom: float, center: s2sphere.LatLng, ratio: float) -> Transformer:
+        """Build a transformer covering the rendered pixel area
+
+        At a pixel ratio of r the image is r times larger in each direction
+        while covering the same area, which is exactly what one extra zoom
+        level per doubling describes -- so the projection is shifted by
+        log2(r) rather than the tile grid being rescaled.
+
+        Parameters:
+            width (int): width of static map in logical pixels
+            height (int): height of static map in logical pixels
+            zoom (float): zoom of static map
+            center (s2sphere.LatLng): center of static map
+            ratio (float): resolved pixel ratio
+
+        Returns:
+            Transformer: transformer for the rendered image
+        """
+        return Transformer(
+            int(width * ratio),
+            int(height * ratio),
+            zoom + math.log2(ratio),
+            center,
+            self._tile_provider.tile_size(),
+        )
+
+    def _render_base(
+        self,
+        renderer: typing.Any,
+        width: int,
+        height: int,
+        zoom: float,
+        center: s2sphere.LatLng,
+        ratio: float = 1.0,
+    ) -> None:
+        """Render the base map, either from raster tiles or a vector style
+
+        A vector provider is rendered as a single image covering the whole
+        map, because label placement needs the entire viewport. Note that
+        tighten_to_bounds is not applied in that case.
+
+        Parameters:
+            renderer (Renderer): renderer of the static map
+            width (int): width of static map
+            height (int): height of static map
+            zoom (float): zoom of static map
+            center (s2sphere.LatLng): center of static map
+            ratio (float): resolved pixel ratio
+        """
+        if not self._tile_provider.is_vector():
+            renderer.render_tiles(self._fetch_tile, self._objects, self._tighten_to_bounds)
+            return
+
+        assert isinstance(self._tile_provider, VectorTileProvider)
+        backend = select_backend(self._basemap_backend)
+        image_data = backend.render(
+            self._tile_provider.style(),
+            width,
+            height,
+            zoom,
+            center.lng().degrees,
+            center.lat().degrees,
+            ratio,
+        )
+        renderer.render_basemap(image_data)
+
+    def _resolve_size(
+        self,
+        width: typing.Optional[int],
+        height: typing.Optional[int],
+        size: typing.Optional[typing.Tuple[int, int]],
+        logical_size: typing.Optional[typing.Tuple[int, int]],
+        pixel_ratio: typing.Optional[float],
+    ) -> typing.Tuple[int, int, float]:
+        """Resolve the requested dimensions to a logical size and a ratio
+
+        size gives the dimensions of the resulting image, logical_size the
+        dimensions before the pixel ratio is applied. They are mutually
+        exclusive, as are both of them and the legacy width/height pair.
+
+        Parameters:
+            width (typing.Optional[int]): legacy width, treated as logical
+            height (typing.Optional[int]): legacy height, treated as logical
+            size (typing.Optional[typing.Tuple[int, int]]): size of the resulting image
+            logical_size (typing.Optional[typing.Tuple[int, int]]): size before the ratio
+            pixel_ratio (typing.Optional[float]): pixel ratio, defaults to the context's
+
+        Returns:
+            tuple: logical width, logical height, pixel ratio
+
+        Raises:
+            ValueError: raises value error if the dimensions are missing,
+                given more than once, or not positive
+        """
+        legacy = width is not None or height is not None
+        given = [name for name, value in (("size", size), ("logical_size", logical_size)) if value is not None]
+        if legacy and given:
+            raise ValueError(f"pass either width/height or {given[0]}, not both")
+        if len(given) > 1:
+            raise ValueError("pass either size or logical_size, not both")
+        if not legacy and not given:
+            raise ValueError("no dimensions given: pass size=(w, h) or logical_size=(w, h)")
+
+        ratio = self._pixel_ratio if pixel_ratio is None else pixel_ratio
+        if ratio <= 0:
+            raise ValueError(f"Bad pixel ratio: {ratio}")
+        if pixel_ratio is not None and pixel_ratio != 1 and not self._tile_provider.is_vector():
+            raise ValueError(
+                "pixel_ratio is only supported by vector tile providers; raster tiles have a fixed density"
+            )
+        if not self._tile_provider.is_vector():
+            ratio = 1.0
+
+        if legacy:
+            if width is None or height is None:
+                raise ValueError("width and height must be given together")
+            w, h = width, height
+        elif size is not None:
+            # size is the resulting image, so the logical size is what the
+            # ratio is applied to in order to reach it
+            w, h = int(size[0] / ratio), int(size[1] / ratio)
+        else:
+            assert logical_size is not None
+            w, h = logical_size
+
+        if w <= 0 or h <= 0:
+            raise ValueError(f"Bad image size: {w}x{h}")
+        return w, h, ratio
+
+    def render_cairo(  # pylint: disable=too-many-arguments
+        self,
+        width: typing.Optional[int] = None,
+        height: typing.Optional[int] = None,
+        attribution: bool = True,
+        *,
+        size: typing.Optional[typing.Tuple[int, int]] = None,
+        logical_size: typing.Optional[typing.Tuple[int, int]] = None,
+        pixel_ratio: typing.Optional[float] = None,
+    ) -> typing.Any:
         """Render area using cairo
 
         Parameters:
-            width (int): width of static map
-            height (int): height of static map
+            width (typing.Optional[int]): legacy width, superseded by size/logical_size
+            height (typing.Optional[int]): legacy height, superseded by size/logical_size
+            size (typing.Optional[typing.Tuple[int, int]]): size of the resulting image
+            logical_size (typing.Optional[typing.Tuple[int, int]]): size before the pixel
+                ratio is applied, so the image comes out ratio times larger
+            pixel_ratio (typing.Optional[float]): pixel ratio, vector providers only
 
         Returns:
             cairo.ImageSurface: cairo image
@@ -241,27 +434,42 @@ class Context:
         if not cairo_is_supported():
             raise RuntimeError('You need to install the "cairo" module to enable "render_cairo".')
 
+        width, height, ratio = self._resolve_size(width, height, size, logical_size, pixel_ratio)
+
         center, zoom = self.determine_center_zoom(width, height, self._focused_only)
         if center is None or zoom is None:
             raise RuntimeError("Cannot render map without center/zoom.")
 
-        trans = Transformer(width, height, zoom, center, self._tile_provider.tile_size())
+        trans = self._transformer(width, height, zoom, center, ratio)
 
         renderer = CairoRenderer(trans)
         renderer.render_background(self._background_color)
-        renderer.render_tiles(self._fetch_tile, self._objects, self._tighten_to_bounds)
+        self._render_base(renderer, width, height, zoom, center, ratio)
         renderer.render_objects(self._objects, self._tighten_to_bounds)
         if attribution:
             renderer.render_attribution(self._tile_provider.attribution())
 
         return renderer.image_surface()
 
-    def render_pillow(self, width: int, height: int, attribution: bool = True) -> PIL_Image.Image:
+    def render_pillow(  # pylint: disable=too-many-arguments
+        self,
+        width: typing.Optional[int] = None,
+        height: typing.Optional[int] = None,
+        attribution: bool = True,
+        *,
+        size: typing.Optional[typing.Tuple[int, int]] = None,
+        logical_size: typing.Optional[typing.Tuple[int, int]] = None,
+        pixel_ratio: typing.Optional[float] = None,
+    ) -> PIL_Image.Image:
         """Render context using PILLOW
 
         Parameters:
-            width (int): width of static map
-            height (int): height of static map
+            width (typing.Optional[int]): legacy width, superseded by size/logical_size
+            height (typing.Optional[int]): legacy height, superseded by size/logical_size
+            size (typing.Optional[typing.Tuple[int, int]]): size of the resulting image
+            logical_size (typing.Optional[typing.Tuple[int, int]]): size before the pixel
+                ratio is applied, so the image comes out ratio times larger
+            pixel_ratio (typing.Optional[float]): pixel ratio, vector providers only
 
         Returns:
             PIL_Image: pillow image
@@ -269,27 +477,41 @@ class Context:
         Raises:
             RuntimeError: raises runtime error if map has no center and zoom
         """
+        width, height, ratio = self._resolve_size(width, height, size, logical_size, pixel_ratio)
+
         center, zoom = self.determine_center_zoom(width, height, self._focused_only)
         if center is None or zoom is None:
             raise RuntimeError("Cannot render map without center/zoom.")
 
-        trans = Transformer(width, height, zoom, center, self._tile_provider.tile_size())
+        trans = self._transformer(width, height, zoom, center, ratio)
 
         renderer = PillowRenderer(trans)
         renderer.render_background(self._background_color)
-        renderer.render_tiles(self._fetch_tile, self._objects, self._tighten_to_bounds)
+        self._render_base(renderer, width, height, zoom, center, ratio)
         renderer.render_objects(self._objects, self._tighten_to_bounds)
         if attribution:
             renderer.render_attribution(self._tile_provider.attribution())
 
         return renderer.image()
 
-    def render_svg(self, width: int, height: int) -> svgwrite.Drawing:
+    def render_svg(  # pylint: disable=too-many-arguments
+        self,
+        width: typing.Optional[int] = None,
+        height: typing.Optional[int] = None,
+        *,
+        size: typing.Optional[typing.Tuple[int, int]] = None,
+        logical_size: typing.Optional[typing.Tuple[int, int]] = None,
+        pixel_ratio: typing.Optional[float] = None,
+    ) -> svgwrite.Drawing:
         """Render context using svgwrite
 
         Parameters:
-            width (int): width of static map
-            height (int): height of static map
+            width (typing.Optional[int]): legacy width, superseded by size/logical_size
+            height (typing.Optional[int]): legacy height, superseded by size/logical_size
+            size (typing.Optional[typing.Tuple[int, int]]): size of the resulting image
+            logical_size (typing.Optional[typing.Tuple[int, int]]): size before the pixel
+                ratio is applied, so the image comes out ratio times larger
+            pixel_ratio (typing.Optional[float]): pixel ratio, vector providers only
 
         Returns:
             svgwrite.Drawing: svg drawing
@@ -297,15 +519,17 @@ class Context:
         Raises:
             RuntimeError: raises runtime error if map has no center and zoom
         """
+        width, height, ratio = self._resolve_size(width, height, size, logical_size, pixel_ratio)
+
         center, zoom = self.determine_center_zoom(width, height, self._focused_only)
         if center is None or zoom is None:
             raise RuntimeError("Cannot render map without center/zoom.")
 
-        trans = Transformer(width, height, zoom, center, self._tile_provider.tile_size())
+        trans = self._transformer(width, height, zoom, center, ratio)
 
         renderer = SvgRenderer(trans)
         renderer.render_background(self._background_color)
-        renderer.render_tiles(self._fetch_tile, self._objects, self._tighten_to_bounds)
+        self._render_base(renderer, width, height, zoom, center, ratio)
         renderer.render_objects(self._objects, self._tighten_to_bounds)
         renderer.render_attribution(self._tile_provider.attribution())
 
@@ -349,12 +573,16 @@ class Context:
 
     def determine_center_zoom(
         self, width: int, height: int, focused_only: bool = False
-    ) -> typing.Tuple[typing.Optional[s2sphere.LatLng], typing.Optional[int]]:
+    ) -> typing.Tuple[typing.Optional[s2sphere.LatLng], typing.Optional[float]]:
         """return center and zoom of static map
 
         Parameters:
-            width (int): width of static map
-            height (int): height of static map
+            width (typing.Optional[int]): legacy width, superseded by size/logical_size
+            height (typing.Optional[int]): legacy height, superseded by size/logical_size
+            size (typing.Optional[typing.Tuple[int, int]]): size of the resulting image
+            logical_size (typing.Optional[typing.Tuple[int, int]]): size before the pixel
+                ratio is applied, so the image comes out ratio times larger
+            pixel_ratio (typing.Optional[float]): pixel ratio, vector providers only
             focused_only (bool): fit to the focused objects only
 
         Returns:
@@ -380,7 +608,7 @@ class Context:
 
     def _determine_zoom(
         self, width: int, height: int, b: typing.Optional[s2sphere.LatLngRect], c: s2sphere.LatLng
-    ) -> typing.Optional[int]:
+    ) -> typing.Optional[float]:
         if b is None:
             b = s2sphere.LatLngRect(c, c)
         else:
@@ -407,6 +635,18 @@ class Context:
             dx -= math.floor(dx)
         dy = math.fabs(max_y - min_y)
 
+        # A vector style is rendered at an arbitrary scale rather than
+        # assembled from discrete tile levels, so it can fit the bounds
+        # exactly instead of stepping down to the next whole zoom.
+        if self._tile_provider.is_vector():
+            fitted = []
+            if dx > 0:
+                fitted.append(math.log2(w / dx))
+            if dy > 0:
+                fitted.append(math.log2(h / dy))
+            if fitted:
+                return self._clamp_zoom(self.zoom_in_range(min(fitted)))
+
         for zoom in range(1, self._tile_provider.max_zoom()):
             tiles = 2**zoom
             if (dx * tiles > w) or (dy * tiles > h):
@@ -421,7 +661,7 @@ class Context:
         lng = b.get_center().lng().degrees
         return s2sphere.LatLng.from_degrees(lat, lng)
 
-    def _adjust_center(self, width: int, height: int, center: s2sphere.LatLng, zoom: int) -> s2sphere.LatLng:
+    def _adjust_center(self, width: int, height: int, center: s2sphere.LatLng, zoom: float) -> s2sphere.LatLng:
         if len(self._objects) == 0:
             return center
 
@@ -457,7 +697,7 @@ class Context:
     def _fetch_tile(self, z: int, x: int, y: int) -> typing.Optional[bytes]:
         return self._tile_downloader.get(self._tile_provider, self._cache_dir, z, x, y)
 
-    def _clamp_zoom(self, zoom: typing.Optional[int]) -> typing.Optional[int]:
+    def _clamp_zoom(self, zoom: typing.Optional[float]) -> typing.Optional[float]:
         if zoom is None:
             return None
         if zoom < 0:

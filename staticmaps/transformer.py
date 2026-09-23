@@ -12,7 +12,7 @@ import s2sphere  # type: ignore
 class Transformer:
     """Base class for transforming values"""
 
-    def __init__(self, width: int, height: int, zoom: int, center: s2sphere.LatLng, tile_size: int) -> None:
+    def __init__(self, width: int, height: int, zoom: float, center: s2sphere.LatLng, tile_size: int) -> None:
         self._zoom = zoom
         self._number_of_tiles = 2**zoom
         self._tile_size = tile_size
@@ -37,11 +37,11 @@ class Transformer:
         self._tile_offset_x = width / 2 - int((self._tile_center_x - self._first_tile_x) * tile_size)
         self._tile_offset_y = height / 2 - int((self._tile_center_y - self._first_tile_y) * tile_size)
 
-    def world_width(self) -> int:
+    def world_width(self) -> float:
         """Return the width of the world in pixels depending on tiles provider
 
         Returns:
-            int: width of the world in pixels
+            float: width of the world in pixels
         """
         return self._number_of_tiles * self._tile_size
 
@@ -61,11 +61,14 @@ class Transformer:
         """
         return self._height
 
-    def zoom(self) -> int:
+    def zoom(self) -> float:
         """Return the zoom of the static map
 
+        Vector tile providers may use a fractional zoom; raster providers are
+        always served from a whole tile level.
+
         Returns:
-            int: zoom of the static map
+            float: zoom of the static map
         """
 
         return self._zoom
@@ -82,10 +85,12 @@ class Transformer:
     def number_of_tiles(self) -> int:
         """Return number of tiles of static map
 
+        Only meaningful for raster providers, which always use a whole zoom.
+
         Returns:
             int: number of tiles
         """
-        return self._number_of_tiles
+        return int(self._number_of_tiles)
 
     def first_tile_x(self) -> int:
         """Return number of first tile in x
