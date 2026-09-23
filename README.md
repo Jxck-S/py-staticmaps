@@ -25,12 +25,24 @@ and circles, from raster or vector tiles.
 pip install git+https://github.com/Jxck-S/py-staticmaps
 ```
 
-With the extras:
+That gives you SVG and PNG through Pillow. Two optional extras, which combine
+with a comma:
 
 ```shell
-pip install "py-staticmaps[cairo] @ git+https://github.com/Jxck-S/py-staticmaps"   # anti-aliased PNG
-pip install "py-staticmaps[pymgl] @ git+https://github.com/Jxck-S/py-staticmaps"   # vector tiles
+# both
+pip install "py-staticmaps[cairo,pymgl] @ git+https://github.com/Jxck-S/py-staticmaps"
+
+# or either one alone
+pip install "py-staticmaps[cairo] @ git+https://github.com/Jxck-S/py-staticmaps"
+pip install "py-staticmaps[pymgl] @ git+https://github.com/Jxck-S/py-staticmaps"
 ```
+
+| Extra | For | Also needs |
+|---|---|---|
+| `cairo` | anti-aliased PNG | `libcairo2-dev` on Debian/Ubuntu, `brew install cairo` on macOS |
+| `pymgl` | vector tile providers | nothing on macOS; on headless Linux see [Vector tiles](https://jxck-s.github.io/py-staticmaps/providers/vector-tiles.html#headless-and-gpu-less-hosts) |
+
+From a clone, the same extras apply: `pip install ".[cairo,pymgl]"`
 
 ## Use
 
