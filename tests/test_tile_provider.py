@@ -5,12 +5,16 @@
 # pylint: disable=protected-access
 
 import inspect
+import math
 import re
 
 import pytest  # type: ignore
+from packaging.version import Version  # type: ignore
 
 import staticmaps
-from staticmaps import tile_provider
+from staticmaps import meta, tile_provider
+from staticmaps.tile_downloader import TileDownloader, redact_url
+from staticmaps.transformer import Transformer
 
 
 def test_sharding() -> None:
@@ -138,8 +142,6 @@ def test_pixel_density_mirrors_the_vector_pixel_ratio() -> None:
 def test_a_2x_provider_covers_half_the_ground_at_a_fixed_size() -> None:
     """Switching to an "@2x" provider without changing the requested size
     trades coverage for density, exactly as pixel_ratio does for vector."""
-    from staticmaps.transformer import Transformer  # pylint: disable=import-outside-toplevel
-
     centre = staticmaps.create_latlng(37.799, -122.400)
 
     def span(tile_size: int) -> float:
@@ -151,9 +153,6 @@ def test_a_2x_provider_covers_half_the_ground_at_a_fixed_size() -> None:
 
 def test_raster_2x_and_vector_ratio_cover_the_same_ground() -> None:
     """The equivalence the two mechanisms are supposed to share."""
-    import math  # pylint: disable=import-outside-toplevel
-
-    from staticmaps.transformer import Transformer  # pylint: disable=import-outside-toplevel
 
     centre = staticmaps.create_latlng(37.799, -122.400)
 
@@ -168,10 +167,25 @@ def test_raster_2x_and_vector_ratio_cover_the_same_ground() -> None:
 def test_error_messages_do_not_leak_the_api_key() -> None:
     """An api key travels in the query string, so an unredacted url in an
     exception leaks it into logs and tracebacks."""
-    from staticmaps.tile_downloader import redact_url  # pylint: disable=import-outside-toplevel
-
     assert redact_url("https://x/1/1/1.png?key=SECRET") == "https://x/1/1/1.png?<redacted>"
     assert redact_url("https://x/1/1/1.png?s=a&api_key=SECRET") == "https://x/1/1/1.png?<redacted>"
     assert "SECRET" not in redact_url("https://x/1/1/1.png?access-token=SECRET")
     # a url without a query string is unchanged
     assert redact_url("https://x/1/1/1.png") == "https://x/1/1/1.png"
+
+
+def test_requests_identify_this_fork() -> None:
+    """The user agent is how a tile server identifies its clients and enforces
+    its usage policy, so it must name the repository actually making the
+    request rather than the one this was forked from."""
+    agent = TileDownloader()._user_agent
+    assert meta.GITHUB_URL in agent
+    assert "flopp/py-staticmaps" not in agent
+    assert meta.VERSION in agent
+
+
+def test_version_is_distinguishable_from_upstream() -> None:
+    """Both projects report py-staticmaps; only the version tells them apart."""
+
+    assert Version(meta.VERSION) > Version("0.5.0")
+    assert Version(meta.VERSION).local is not None
