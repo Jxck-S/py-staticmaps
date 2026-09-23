@@ -46,6 +46,32 @@ The extras work the same way:
 pip install "py-staticmaps[cairo,pymgl] @ git+https://github.com/Jxck-S/py-staticmaps"
 ```
 
+## Telling them apart once installed
+
+Both projects are called `py-staticmaps`, so the version is the only thing
+that distinguishes them:
+
+```python
+import staticmaps
+staticmaps.VERSION        # "0.5.0"         -> the original
+                          # "0.5.0+jxck.N"  -> this fork
+```
+
+The version is a PEP 440 *local version*: the public part says which upstream
+release the code descends from, and the local part says whose fork it is. It
+sorts after a plain `0.5.0`, so pip treats it as the newer of the two.
+
+This also reaches the tile servers you fetch from, since the user agent
+carries both the version and the repository:
+
+```
+Mozilla/5.0+(compatible; py-staticmaps/0.5.0+jxck.1; https://github.com/Jxck-S/py-staticmaps)
+```
+
+That matters because a provider identifies clients by user agent when
+enforcing its usage policy. Before this, the fork announced itself as the
+original, so any complaint would have reached the wrong repository.
+
 ## What each layer added
 
 Measured against the original `0.5.0`, and verified by checking each feature

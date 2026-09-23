@@ -21,6 +21,7 @@ pylint
 
 # Testing
 coverage
+packaging
 pytest
 pytest-cov
 
