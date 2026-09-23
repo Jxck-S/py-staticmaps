@@ -51,6 +51,11 @@ watch:
   - examples
 
 markdown_extensions:
+  - admonition
+  - attr_list
+  - pymdownx.details
   - pymdownx.highlight
   - pymdownx.magiclink
   - pymdownx.superfences
+  - toc:
+      permalink: true
