@@ -36,24 +36,6 @@ def public_names(path: Path) -> typing.Tuple[typing.List[str], typing.List[str]]
     return classes, functions
 
 
-def summary(path: Path) -> str:
-    """Return a module's one-line description
-
-    Parameters:
-        path (Path): module to read
-
-    Returns:
-        str: the docstring's first line, without the library prefix
-    """
-    try:
-        doc = ast.get_docstring(ast.parse(path.read_text(encoding="utf-8"))) or ""
-    except (OSError, SyntaxError):
-        return ""
-    first = doc.strip().splitlines()[0] if doc.strip() else ""
-    prefix = "py-staticmaps - "
-    return first[len(prefix) :] if first.startswith(prefix) else first
-
-
 def write_index(modules: typing.List[typing.Tuple[str, Path]]) -> None:
     """Write the reference landing page
 
@@ -75,18 +57,6 @@ def write_index(modules: typing.List[typing.Tuple[str, Path]]) -> None:
             classes, functions = public_names(path)
             defined = ", ".join(f"`{n}`" for n in classes + functions) or "—"
             index_file.write(f"| [{module}]({module}.md) | {defined} |\n")
-
-        index_file.write("\n## Modules\n\n")
-        for module, path in modules:
-            note = summary(path)
-            classes, functions = public_names(path)
-            index_file.write(f"### [{module}]({module}.md)\n\n")
-            if note:
-                index_file.write(f"{note}\n\n")
-            if classes:
-                index_file.write("Classes: " + ", ".join(f"`{c}`" for c in classes) + "\n\n")
-            if functions:
-                index_file.write("Functions: " + ", ".join(f"`{f}`" for f in functions) + "\n\n")
 
 
 def main() -> None:
