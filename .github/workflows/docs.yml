@@ -23,7 +23,7 @@ jobs:
         # for the GL stack to attach to.
         run: |
           sudo apt-get update
-          sudo apt-get install -y libcairo2-dev libegl1 libgl1-mesa-dri xvfb
+          sudo apt-get install -y libcairo2-dev libegl1 libgl1-mesa-dri xvfb ca-certificates
       - uses: actions/setup-python@v7
         with:
           python-version: "3.14"
@@ -44,6 +44,10 @@ jobs:
           API_KEY_JAWG: ${{ secrets.API_KEY_JAWG }}
           API_KEY_STADIA: ${{ secrets.API_KEY_STADIA }}
           LIBGL_ALWAYS_SOFTWARE: 1
+          # pymgl fetches tiles through its own bundled libcurl, which does
+          # not know where this distribution keeps its CA bundle
+          CURL_CA_BUNDLE: /etc/ssl/certs/ca-certificates.crt
+          SSL_CERT_FILE: /etc/ssl/certs/ca-certificates.crt
         run: |
           xvfb-run -a --server-args="-screen 0 1024x768x24 -ac +render -noreset" \
             env PYTHONPATH=. python examples/run_examples.py

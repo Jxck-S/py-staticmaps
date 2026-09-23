@@ -23,8 +23,9 @@ for name, provider in staticmaps.default_tile_providers.items():
     if provider.requires_key():
         # CARTO, Jawg and Stadia each need a key; take it from API_KEY_<VENDOR>
         vendor = provider.name().split("-")[0].upper()
+        # a workflow sets an absent secret to an empty string, not to nothing
         api_key = os.environ.get(f"API_KEY_{vendor}")
-        if api_key is None:
+        if not api_key:
             continue
         provider.set_api_key(api_key)
     context.set_tile_provider(provider)
