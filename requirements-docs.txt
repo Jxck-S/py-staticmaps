@@ -1,7 +1,11 @@
+# Requirements for building the documentation site.
+
 mkdocs
-mkdocs-material
+mkdocs-autorefs
 mkdocs-gen-files
 mkdocs-literate-nav
+mkdocs-material
 mkdocs-section-index
-mkdocs-autorefs
-mkdocstrings[python]
+mkdocstrings
+mkdocstrings-python
+Pygments
